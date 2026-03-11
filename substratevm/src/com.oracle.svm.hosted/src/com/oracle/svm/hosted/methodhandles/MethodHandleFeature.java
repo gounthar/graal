@@ -49,23 +49,23 @@ import com.oracle.graal.pointsto.meta.AnalysisMetaAccess;
 import com.oracle.graal.pointsto.meta.AnalysisMethod;
 import com.oracle.graal.pointsto.meta.AnalysisType;
 import com.oracle.svm.core.BuildPhaseProvider;
-import com.oracle.svm.shared.feature.AutomaticallyRegisteredFeature;
 import com.oracle.svm.core.feature.InternalFeature;
 import com.oracle.svm.core.fieldvaluetransformer.FieldValueTransformerWithAvailability;
 import com.oracle.svm.core.fieldvaluetransformer.NewEmptyArrayFieldValueTransformer;
 import com.oracle.svm.core.hub.RuntimeClassLoading;
 import com.oracle.svm.core.invoke.MethodHandleIntrinsic;
-import com.oracle.svm.shared.util.VMError;
 import com.oracle.svm.hosted.FeatureImpl.BeforeAnalysisAccessImpl;
 import com.oracle.svm.hosted.FeatureImpl.DuringAnalysisAccessImpl;
 import com.oracle.svm.hosted.FeatureImpl.DuringSetupAccessImpl;
+import com.oracle.svm.shared.feature.AutomaticallyRegisteredFeature;
 import com.oracle.svm.shared.singletons.traits.BuiltinTraits.BuildtimeAccessOnly;
 import com.oracle.svm.shared.singletons.traits.BuiltinTraits.NoLayeredCallbacks;
 import com.oracle.svm.shared.singletons.traits.BuiltinTraits.PartiallyLayerAware;
 import com.oracle.svm.shared.singletons.traits.SingletonTraits;
+import com.oracle.svm.shared.util.ReflectionUtil;
+import com.oracle.svm.shared.util.VMError;
 import com.oracle.svm.util.GuestAccess;
 import com.oracle.svm.util.JVMCIReflectionUtil;
-import com.oracle.svm.shared.util.ReflectionUtil;
 import com.oracle.svm.util.dynamicaccess.JVMCIRuntimeReflection;
 
 import jdk.graal.compiler.vmaccess.VMAccess;
@@ -120,6 +120,11 @@ public class MethodHandleFeature implements InternalFeature {
     private Method referencedKeySetAdd;
 
     private EconomicSet<Object> heapSpeciesData = EconomicSet.create(); // concurrent access
+
+    @Override
+    public void afterRegistration(AfterRegistrationAccess access) {
+        registerValueConversionsMethodsForReflection(access);
+    }
 
     @Override
     public void duringSetup(DuringSetupAccess access) {
@@ -382,9 +387,18 @@ public class MethodHandleFeature implements InternalFeature {
     }
 
     /**
-     * Eagerly initialize method handle caches in {@link ValueConversions} so that 1) we avoid
-     * reflection registration for conversion methods, and 2) the static analysis already sees a
-     * consistent snapshot that does not change after analysis when the JDK needs more conversions.
+     * Runtime conversion-cache misses trigger {@code ValueConversions} lookups through
+     * {@code Class.getDeclaredMethod}. Register all declared methods so these lookups keep working
+     * even when reflection class-query checks require class-level metadata.
+     */
+    private static void registerValueConversionsMethodsForReflection(AfterRegistrationAccess access) {
+        RuntimeReflection.register(ReflectionUtil.lookupClass("sun.invoke.util.ValueConversions"));
+    }
+
+    /**
+     * Eagerly initialize method handle caches in {@link ValueConversions} so that 1) we avoid most
+     * runtime lookups for conversion methods, and 2) the static analysis already sees a consistent
+     * snapshot that does not change after analysis when the JDK needs more conversions.
      */
     private static void eagerlyInitializeValueConversionsCaches() {
         ValueConversions.ignore();
