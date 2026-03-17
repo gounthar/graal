@@ -35,6 +35,7 @@ import static jdk.graal.compiler.lir.LIRInstruction.OperandFlag.UNINITIALIZED;
 import static jdk.graal.compiler.lir.LIRInstruction.OperandMode.ALIVE;
 import static jdk.graal.compiler.lir.LIRInstruction.OperandMode.DEF;
 import static jdk.graal.compiler.lir.LIRInstruction.OperandMode.TEMP;
+import static jdk.graal.compiler.lir.LIRInstruction.OperandMode.USE_KILL;
 import static jdk.graal.compiler.lir.LIRValueUtil.isVirtualStackSlot;
 import static jdk.vm.ci.code.ValueUtil.isStackSlot;
 
@@ -96,6 +97,13 @@ public abstract class LIRInstruction {
         USE,
 
         /**
+         * The value must have been defined before. It is read at the beginning of the instruction,
+         * and then killed by the instruction. A register assigned to it can also be assigned to a
+         * {@link #TEMP} or {@link #DEF} operand after the use.
+         */
+        USE_KILL,
+
+        /**
          * The value must have been defined before. It is alive before the instruction and
          * throughout the instruction. A register assigned to it cannot be assigned to a
          * {@link #TEMP} or {@link #DEF} operand. The value can be used again after the instruction,
@@ -127,6 +135,13 @@ public abstract class LIRInstruction {
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.FIELD)
     public @interface Alive {
+
+        OperandFlag[] value() default OperandFlag.REG;
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.FIELD)
+    public @interface UseKill {
 
         OperandFlag[] value() default OperandFlag.REG;
     }
@@ -205,6 +220,7 @@ public abstract class LIRInstruction {
     static {
         ALLOWED_FLAGS = new EnumMap<>(OperandMode.class);
         ALLOWED_FLAGS.put(OperandMode.USE, EnumSet.of(REG, STACK, COMPOSITE, CONST, ILLEGAL, HINT, UNINITIALIZED));
+        ALLOWED_FLAGS.put(USE_KILL, EnumSet.of(REG, STACK, COMPOSITE, ILLEGAL, HINT));
         ALLOWED_FLAGS.put(ALIVE, EnumSet.of(REG, STACK, COMPOSITE, CONST, ILLEGAL, HINT, UNINITIALIZED, OUTGOING));
         ALLOWED_FLAGS.put(TEMP, EnumSet.of(REG, STACK, COMPOSITE, ILLEGAL, HINT));
         ALLOWED_FLAGS.put(DEF, EnumSet.of(REG, STACK, COMPOSITE, ILLEGAL, HINT));
@@ -274,6 +290,10 @@ public abstract class LIRInstruction {
         instructionClass.forEachAlive(this, proc);
     }
 
+    public final void forEachUseKill(InstructionValueProcedure proc) {
+        instructionClass.forEachUseKill(this, proc);
+    }
+
     public final void forEachTemp(InstructionValueProcedure proc) {
         instructionClass.forEachTemp(this, proc);
     }
@@ -293,6 +313,10 @@ public abstract class LIRInstruction {
 
     public final void forEachAlive(ValueProcedure proc) {
         instructionClass.forEachAlive(this, proc);
+    }
+
+    public final void forEachUseKill(ValueProcedure proc) {
+        instructionClass.forEachUseKill(this, proc);
     }
 
     public final void forEachTemp(ValueProcedure proc) {
@@ -325,6 +349,10 @@ public abstract class LIRInstruction {
         instructionClass.visitEachAlive(this, proc);
     }
 
+    public final void visitEachUseKill(InstructionValueConsumer proc) {
+        instructionClass.visitEachUseKill(this, proc);
+    }
+
     public final void visitEachTemp(InstructionValueConsumer proc) {
         instructionClass.visitEachTemp(this, proc);
     }
@@ -344,6 +372,10 @@ public abstract class LIRInstruction {
 
     public final void visitEachAlive(ValueConsumer proc) {
         instructionClass.visitEachAlive(this, proc);
+    }
+
+    public final void visitEachUseKill(ValueConsumer proc) {
+        instructionClass.visitEachUseKill(this, proc);
     }
 
     public final void visitEachTemp(ValueConsumer proc) {

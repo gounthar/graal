@@ -204,6 +204,7 @@ final class FixPointIntervalBuilder {
             DebugContext debug = lir.getDebug();
             try (Indent indent = debug.logAndIndent("handle op %d, %s", op.id(), op)) {
                 // kills
+                op.visitEachUseKill(defConsumer);
                 op.visitEachTemp(defConsumer);
                 op.visitEachOutput(defConsumer);
 
@@ -213,6 +214,7 @@ final class FixPointIntervalBuilder {
                 // mark locations
                 // gen
                 op.visitEachInput(useConsumer);
+                op.visitEachUseKill(useConsumer);
             }
         }
 

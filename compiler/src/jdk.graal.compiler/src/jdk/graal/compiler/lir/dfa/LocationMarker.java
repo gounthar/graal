@@ -140,6 +140,7 @@ public abstract class LocationMarker<S extends ValueSet<S>> {
             // kills
 
             op.visitEachOutput(defConsumer);
+            op.visitEachUseKill(defConsumer);
             op.visitEachTemp(defConsumer);
             if (frameMap != null && op.destroysCallerSavedRegisters()) {
                 for (Register reg : frameMap.getRegisterConfig().getCallerSaveRegisters()) {
@@ -155,6 +156,7 @@ public abstract class LocationMarker<S extends ValueSet<S>> {
             op.forEachState(stateConsumer);
             // gen
             op.visitEachInput(useConsumer);
+            op.visitEachUseKill(useConsumer);
         } catch (GraalError e) {
             throw e.addContext("lir instruction", "@" + op.id() + " " + op.getClass().getName() + " " + op);
         }

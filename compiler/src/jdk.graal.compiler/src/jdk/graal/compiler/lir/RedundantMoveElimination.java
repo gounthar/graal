@@ -429,6 +429,7 @@ public final class RedundantMoveElimination extends PostAllocationOptimizationPh
 
                 OutputValueConsumer outputValueConsumer = new OutputValueConsumer(valueNum);
 
+                op.visitEachUseKill(outputValueConsumer);
                 op.visitEachTemp(outputValueConsumer);
                 /*
                  * Semantically the output values are written _after_ the temp values

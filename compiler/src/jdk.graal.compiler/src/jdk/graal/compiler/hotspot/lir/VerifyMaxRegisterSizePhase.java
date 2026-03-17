@@ -66,6 +66,7 @@ public final class VerifyMaxRegisterSizePhase extends FinalCodeAnalysisPhase {
 
     protected void verifyInstruction(LIRInstruction inst) {
         inst.visitEachInput(this::verifyOperands);
+        inst.visitEachUseKill(this::verifyOperands);
         inst.visitEachOutput(this::verifyOperands);
         inst.visitEachAlive(this::verifyOperands);
         inst.visitEachTemp(this::verifyOperands);

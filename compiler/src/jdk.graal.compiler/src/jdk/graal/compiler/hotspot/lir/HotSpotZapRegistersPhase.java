@@ -123,6 +123,7 @@ public final class HotSpotZapRegistersPhase extends PostAllocationOptimizationPh
                             destroyedRegisters.remove(reg);
                         }
                     };
+                    inst.visitEachUseKill(tempConsumer);
                     inst.visitEachTemp(tempConsumer);
                     inst.visitEachOutput(defConsumer);
 

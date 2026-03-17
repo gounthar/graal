@@ -76,14 +76,10 @@ public final class AMD64VectorizedMismatchOp extends AMD64ComplexVectorOp {
     private static final int ONES_32 = 0xffffffff;
 
     @Def({OperandFlag.REG}) private Value resultValue;
-    @Use({OperandFlag.REG}) private Value arrayAValue;
-    @Use({OperandFlag.REG}) private Value arrayBValue;
-    @Use({OperandFlag.REG}) private Value lengthValue;
+    @UseKill({OperandFlag.REG}) private Value arrayAValue;
+    @UseKill({OperandFlag.REG}) private Value arrayBValue;
+    @UseKill({OperandFlag.REG}) private Value lengthValue;
     @Alive({OperandFlag.REG}) private Value strideValue;
-
-    @Temp({OperandFlag.REG}) private Value arrayAValueTemp;
-    @Temp({OperandFlag.REG}) private Value arrayBValueTemp;
-    @Temp({OperandFlag.REG}) private Value lengthValueTemp;
 
     @Temp({OperandFlag.REG}) Value[] temp;
     @Temp({OperandFlag.REG}) Value[] vectorTemp;
@@ -92,9 +88,9 @@ public final class AMD64VectorizedMismatchOp extends AMD64ComplexVectorOp {
                     Value result, Value arrayA, Value arrayB, Value length, Value stride) {
         super(TYPE, tool, runtimeCheckedCPUFeatures, YMM);
         this.resultValue = result;
-        this.arrayAValue = this.arrayAValueTemp = arrayA;
-        this.arrayBValue = this.arrayBValueTemp = arrayB;
-        this.lengthValue = this.lengthValueTemp = length;
+        this.arrayAValue = arrayA;
+        this.arrayBValue = arrayB;
+        this.lengthValue = length;
         this.strideValue = stride;
         this.temp = allocateTempRegisters(tool, AMD64Kind.QWORD, 2);
         this.vectorTemp = allocateVectorRegisters(tool, JavaKind.Byte, 3);

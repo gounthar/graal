@@ -93,21 +93,13 @@ public final class AMD64ArrayEqualsOp extends AMD64ComplexVectorOp {
     private final boolean canGenerateConstantLengthCompare;
 
     @Def({OperandFlag.REG}) private Value resultValue;
-    @Use({OperandFlag.REG}) private Value arrayAValue;
-    @Use({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value offsetAValue;
-    @Use({OperandFlag.REG}) private Value arrayBValue;
-    @Use({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value offsetBValue;
-    @Use({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value arrayMaskValue;
-    @Use({OperandFlag.REG}) private Value lengthValue;
-    @Use({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value dynamicStridesValue;
-
-    @Temp({OperandFlag.REG}) private Value arrayAValueTemp;
-    @Temp({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value offsetAValueTemp;
-    @Temp({OperandFlag.REG}) private Value arrayBValueTemp;
-    @Temp({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value offsetBValueTemp;
-    @Temp({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value arrayMaskValueTemp;
-    @Temp({OperandFlag.REG}) private Value lengthValueTemp;
-    @Temp({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value dynamicStrideValueTemp;
+    @UseKill({OperandFlag.REG}) private Value arrayAValue;
+    @UseKill({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value offsetAValue;
+    @UseKill({OperandFlag.REG}) private Value arrayBValue;
+    @UseKill({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value offsetBValue;
+    @UseKill({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value arrayMaskValue;
+    @UseKill({OperandFlag.REG}) private Value lengthValue;
+    @UseKill({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value dynamicStridesValue;
 
     @Temp({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value tempXMM;
 
@@ -135,13 +127,13 @@ public final class AMD64ArrayEqualsOp extends AMD64ComplexVectorOp {
         this.canGenerateConstantLengthCompare = canGenerateConstantLengthCompare(tool.target(), runtimeCheckedCPUFeatures, elementKind, strideA, strideB, constLength, dynamicStrides, vectorSize);
 
         this.resultValue = result;
-        this.arrayAValue = this.arrayAValueTemp = arrayA;
-        this.offsetAValue = this.offsetAValueTemp = offsetA;
-        this.arrayBValue = this.arrayBValueTemp = arrayB;
-        this.offsetBValue = this.offsetBValueTemp = offsetB;
-        this.arrayMaskValue = this.arrayMaskValueTemp = mask;
-        this.lengthValue = this.lengthValueTemp = length;
-        this.dynamicStridesValue = this.dynamicStrideValueTemp = dynamicStrides;
+        this.arrayAValue = arrayA;
+        this.offsetAValue = offsetA;
+        this.arrayBValue = arrayB;
+        this.offsetBValue = offsetB;
+        this.arrayMaskValue = mask;
+        this.lengthValue = length;
+        this.dynamicStridesValue = dynamicStrides;
 
         if (elementKind == JavaKind.Float) {
             this.tempXMM = tool.newVariable(LIRKind.value(AMD64Kind.SINGLE));
@@ -312,7 +304,7 @@ public final class AMD64ArrayEqualsOp extends AMD64ComplexVectorOp {
             emitConstantLengthArrayCompareBytes(masm, result);
         } else {
             Register length = asRegister(lengthValue);
-            Register tmp = asRegister(offsetAValueTemp);
+            Register tmp = asRegister(offsetAValue);
             if (withDynamicStrides()) {
                 assert elementKind.isNumericInteger();
                 Label[] variants = new Label[9];
@@ -511,7 +503,7 @@ public final class AMD64ArrayEqualsOp extends AMD64ComplexVectorOp {
         Label loopCheck = new Label();
         Label nanCheck = new Label();
 
-        Register temp = asRegister(offsetAValueTemp);
+        Register temp = asRegister(offsetAValue);
 
         masm.andl(result, elementsPerVector - 1); // tail count
         masm.andlAndJcc(length, ~(elementsPerVector - 1), ConditionFlag.Zero, compareTail, false);
@@ -585,7 +577,7 @@ public final class AMD64ArrayEqualsOp extends AMD64ComplexVectorOp {
         Label compare2Bytes = new Label();
         Label compare1Byte = new Label();
 
-        Register temp = asRegister(offsetAValueTemp);
+        Register temp = asRegister(offsetAValue);
 
         if (strideA.value <= 4) {
             // Compare trailing 4 bytes, if any.
@@ -658,8 +650,8 @@ public final class AMD64ArrayEqualsOp extends AMD64ComplexVectorOp {
 
         int elementsPerLoopIteration = 2;
 
-        Register tmp1 = asRegister(offsetAValueTemp);
-        Register tmp2 = asRegister(offsetBValueTemp);
+        Register tmp1 = asRegister(offsetAValue);
+        Register tmp2 = asRegister(offsetBValue);
 
         masm.andl(result, elementsPerLoopIteration - 1); // tail count
         masm.andlAndJcc(length, ~(elementsPerLoopIteration - 1), ConditionFlag.Zero, compareTail, true);
@@ -737,7 +729,7 @@ public final class AMD64ArrayEqualsOp extends AMD64ComplexVectorOp {
 
         if (!skipBitwiseCompare) {
             // Bitwise compare
-            Register temp = asRegister(offsetAValueTemp);
+            Register temp = asRegister(offsetAValue);
 
             if (elementKind == JavaKind.Float) {
                 masm.movl(temp, address1);
@@ -761,7 +753,7 @@ public final class AMD64ArrayEqualsOp extends AMD64ComplexVectorOp {
                     Stride strideA, Stride strideB, Register arrayA, Register arrayB, Register index, int offset, Label falseLabel, int range) {
         assert elementKind.isNumericFloat();
         Label loop = new Label();
-        Register i = asRegister(offsetBValueTemp);
+        Register i = asRegister(offsetBValue);
 
         masm.movq(i, range);
         masm.negq(i);

@@ -133,6 +133,7 @@ public class FrameMapBuilderImpl extends FrameMapBuilderTool {
             lir.getLIRforBlock(block).forEach(op -> {
                 op.visitEachInput(verifySlots);
                 op.visitEachAlive(verifySlots);
+                op.visitEachUseKill(verifySlots);
                 op.visitEachState(verifySlots);
 
                 op.visitEachTemp(verifySlots);

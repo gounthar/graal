@@ -61,6 +61,7 @@ class UseEntry {
         ValueProcedure proc = (value, mode, flags) -> value.identityEquals(oldValue) ? newValue : value;
         op.forEachAlive(proc);
         op.forEachInput(proc);
+        op.forEachUseKill(proc);
         op.forEachOutput(proc);
         op.forEachTemp(proc);
         op.forEachState(proc);

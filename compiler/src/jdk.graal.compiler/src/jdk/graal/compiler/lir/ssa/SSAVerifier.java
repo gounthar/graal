@@ -100,7 +100,9 @@ final class SSAVerifier {
             op.visitEachAlive(this::useConsumer);
             op.visitEachState(this::useConsumer);
             op.visitEachInput(this::useConsumer);
+            op.visitEachUseKill(this::useConsumer);
 
+            op.visitEachUseKill(this::defConsumer);
             op.visitEachTemp(this::defConsumer);
             op.visitEachOutput(this::defConsumer);
 

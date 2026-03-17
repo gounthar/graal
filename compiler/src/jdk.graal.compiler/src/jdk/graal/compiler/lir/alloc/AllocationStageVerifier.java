@@ -66,6 +66,7 @@ public class AllocationStageVerifier extends AllocationPhase {
         inst.visitEachInput(this::verifyOperands);
         inst.visitEachOutput(this::verifyOperands);
         inst.visitEachAlive(this::verifyOperands);
+        inst.visitEachUseKill(this::verifyOperands);
         inst.visitEachTemp(this::verifyOperands);
     }
 

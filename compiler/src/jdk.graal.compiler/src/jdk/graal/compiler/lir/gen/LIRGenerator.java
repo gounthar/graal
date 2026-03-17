@@ -311,6 +311,7 @@ public abstract class LIRGenerator extends CoreProvidersDelegate implements LIRG
 
     private static boolean verify(final LIRInstruction op) {
         op.visitEachInput(LIRGenerator::allowed);
+        op.visitEachUseKill(LIRGenerator::allowed);
         op.visitEachAlive(LIRGenerator::allowed);
         op.visitEachState(LIRGenerator::allowed);
         op.visitEachTemp(LIRGenerator::allowed);

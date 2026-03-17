@@ -96,19 +96,12 @@ public final class AMD64ArrayRegionCompareToOp extends AMD64ComplexVectorOp {
     private final AMD64MacroAssembler.ExtendMode extendMode;
 
     @Def({OperandFlag.REG}) private Value resultValue;
-    @Use({OperandFlag.REG}) private Value arrayAValue;
-    @Use({OperandFlag.REG}) private Value offsetAValue;
-    @Use({OperandFlag.REG}) private Value arrayBValue;
-    @Use({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value offsetBValue;
-    @Use({OperandFlag.REG}) private Value lengthValue;
-    @Use({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value dynamicStridesValue;
-
-    @Temp({OperandFlag.REG}) private Value arrayAValueTemp;
-    @Temp({OperandFlag.REG}) private Value offsetAValueTemp;
-    @Temp({OperandFlag.REG}) private Value arrayBValueTemp;
-    @Temp({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value offsetBValueTemp;
-    @Temp({OperandFlag.REG}) private Value lengthValueTemp;
-    @Temp({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value dynamicStridesValueTemp;
+    @UseKill({OperandFlag.REG}) private Value arrayAValue;
+    @UseKill({OperandFlag.REG}) private Value offsetAValue;
+    @UseKill({OperandFlag.REG}) private Value arrayBValue;
+    @UseKill({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value offsetBValue;
+    @UseKill({OperandFlag.REG}) private Value lengthValue;
+    @UseKill({OperandFlag.REG, OperandFlag.ILLEGAL}) private Value dynamicStridesValue;
 
     @Temp({OperandFlag.REG}) Value[] vectorTemp;
 
@@ -127,12 +120,12 @@ public final class AMD64ArrayRegionCompareToOp extends AMD64ComplexVectorOp {
             this.argStrideB = strideB;
         }
         this.resultValue = result;
-        this.arrayAValue = this.arrayAValueTemp = arrayA;
-        this.offsetAValue = this.offsetAValueTemp = offsetA;
-        this.arrayBValue = this.arrayBValueTemp = arrayB;
-        this.offsetBValue = this.offsetBValueTemp = offsetB;
-        this.lengthValue = this.lengthValueTemp = length;
-        this.dynamicStridesValue = this.dynamicStridesValueTemp = dynamicStrides;
+        this.arrayAValue = arrayA;
+        this.offsetAValue = offsetA;
+        this.arrayBValue = arrayB;
+        this.offsetBValue = offsetB;
+        this.lengthValue = length;
+        this.dynamicStridesValue = dynamicStrides;
 
         this.vectorTemp = allocateVectorRegisters(tool, JavaKind.Byte, isVectorCompareSupported(tool.target(), runtimeCheckedCPUFeatures, argStrideA, argStrideB) ? 4 : 0);
     }

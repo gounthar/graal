@@ -391,6 +391,7 @@ public abstract class HotSpotBackend extends Backend implements FrameMap.Referen
                     save = null;
                     preservedRegisters.clear();
                 } else {
+                    op.visitEachUseKill(defConsumer);
                     op.visitEachTemp(defConsumer);
                     op.visitEachOutput(defConsumer);
                 }

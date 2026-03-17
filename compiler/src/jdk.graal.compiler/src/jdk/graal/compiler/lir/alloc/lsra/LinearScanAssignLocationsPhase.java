@@ -192,14 +192,16 @@ public class LinearScanAssignLocationsPhase extends LinearScanAllocationPhase {
             if (LIRValueUtil.isVariable(value)) {
                 Value location = colorLirOperand(instruction, LIRValueUtil.asVariable(value), mode);
                 if (LIRValueUtil.isCast(value)) {
-                    GraalError.guarantee(mode == LIRInstruction.OperandMode.USE || mode == LIRInstruction.OperandMode.ALIVE, "Invalid application of CastValue");
+                    GraalError.guarantee(mode == LIRInstruction.OperandMode.USE || mode == LIRInstruction.OperandMode.USE_KILL || mode == LIRInstruction.OperandMode.ALIVE,
+                                    "Invalid application of CastValue");
                     // return the same location, but with the cast's kind.
                     CastValue cast = (CastValue) value;
                     return LIRValueUtil.changeValueKind(location, cast.getValueKind(), true);
                 }
                 return location;
             } else if (LIRValueUtil.isCast(value)) {
-                GraalError.guarantee(mode == LIRInstruction.OperandMode.USE || mode == LIRInstruction.OperandMode.ALIVE, "Invalid application of CastValue");
+                GraalError.guarantee(mode == LIRInstruction.OperandMode.USE || mode == LIRInstruction.OperandMode.USE_KILL || mode == LIRInstruction.OperandMode.ALIVE,
+                                "Invalid application of CastValue");
                 // strip CastValue: return underlying value, but with the cast's kind.
                 CastValue cast = (CastValue) value;
                 return LIRValueUtil.changeValueKind(cast.underlyingValue(), cast.getValueKind(), false);
@@ -252,6 +254,7 @@ public class LinearScanAssignLocationsPhase extends LinearScanAllocationPhase {
 
         op.forEachInput(assignProc);
         op.forEachAlive(assignProc);
+        op.forEachUseKill(assignProc);
         op.forEachTemp(assignProc);
         op.forEachOutput(assignProc);
 

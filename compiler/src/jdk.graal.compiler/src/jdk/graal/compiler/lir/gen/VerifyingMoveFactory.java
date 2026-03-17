@@ -136,6 +136,7 @@ public final class VerifyingMoveFactory extends MoveFactory {
 
         VerifyingMoveFactory.CheckClosure c = new CheckClosure(result, input);
         inst.visitEachInput(c::inputProc);
+        inst.visitEachUseKill(c::inputProc);
         inst.visitEachOutput(c::outputProc);
         inst.visitEachAlive(c::aliveProc);
         inst.visitEachTemp(c::tempProc);

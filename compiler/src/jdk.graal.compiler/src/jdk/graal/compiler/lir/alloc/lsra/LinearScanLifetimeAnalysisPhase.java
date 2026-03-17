@@ -253,12 +253,14 @@ public class LinearScanLifetimeAnalysisPhase extends LinearScanAllocationPhase {
 
                         try (Indent indent2 = debug.logAndIndent("handle op %d: %s", op.id(), op)) {
                             op.visitEachInput(useConsumer);
+                            op.visitEachUseKill(useConsumer);
                             op.visitEachAlive(useConsumer);
                             /*
                              * Add uses of live locals from interpreter's point of view for proper
                              * debug information generation.
                              */
                             op.visitEachState(stateConsumer);
+                            op.visitEachUseKill(defConsumer);
                             op.visitEachTemp(defConsumer);
                             op.visitEachOutput(defConsumer);
                         }
@@ -895,9 +897,11 @@ public class LinearScanLifetimeAnalysisPhase extends LinearScanAllocationPhase {
                             }
 
                             op.visitEachOutput(outputConsumer);
+                            op.visitEachUseKill(tempConsumer);
                             op.visitEachTemp(tempConsumer);
                             op.visitEachAlive(aliveConsumer);
                             op.visitEachInput(inputConsumer);
+                            op.visitEachUseKill(inputConsumer);
 
                             /*
                              * Add uses of live locals from interpreter's point of view for proper

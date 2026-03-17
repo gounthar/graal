@@ -266,6 +266,7 @@ public final class ConstantLoadOptimization extends PreAllocationOptimizationPha
                     inst.setId(opId++);
                     inst.visitEachOutput(loadConsumer);
                     inst.visitEachInput(useConsumer);
+                    inst.visitEachUseKill(useConsumer);
                     inst.visitEachAlive(useConsumer);
                     inst.visitEachState(stateVectorUseConsumer);
                 }
