@@ -256,7 +256,8 @@ def _is_post_merge_or_weekly_job():
 
 
 def _should_run_headless_java_desktop_integration():
-    return _is_post_merge_or_weekly_job() or (Task.tags is not None and GraalTags.headless_java_desktop_integration in Task.tags)
+    tags = tuple(Task.tags or ())
+    return _is_post_merge_or_weekly_job() or any(tag == GraalTags.headless_java_desktop_integration for tag in tags)
 
 class Tags(set):
     def __getattr__(self, name):
@@ -2557,6 +2558,7 @@ class JvmFuncsFallbacksBuildTask(mx.BuildTask):
                         mx.logvv('Skipping line: ' + line.rstrip())
                 return collector
 
+            symbol_dump_command = ''
             if mx.is_windows():
                 symbol_dump_command = 'dumpbin /SYMBOLS'
             elif mx.is_darwin():
@@ -2565,7 +2567,6 @@ class JvmFuncsFallbacksBuildTask(mx.BuildTask):
                 symbol_dump_command = 'objdump --wide --syms'
             else:
                 mx.abort('gen_fallbacks not supported on ' + sys.platform)
-                raise AssertionError('unreachable')
 
             seen_gnu_property_type_5_warnings = False
             def suppress_gnu_property_type_5_warnings(line):
