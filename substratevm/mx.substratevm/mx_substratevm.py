@@ -255,7 +255,7 @@ def _is_post_merge_or_weekly_job():
     return 'post-merge' in build_name or 'weekly' in build_name
 
 
-def _should_run_headless_java_desktop_integration():
+def _should_run_java_desktop_integration():
     tags = tuple(Task.tags or ())
     return _is_post_merge_or_weekly_job() or any(tag == GraalTags.headless_java_desktop_integration for tag in tags)
 
@@ -523,13 +523,13 @@ def svm_gate_body(args, tasks):
             with native_image_context(IMAGE_ASSERTION_FLAGS):
                 native_unittests_task(args.extra_image_builder_arguments)
 
-    with Task('Headless java.desktop integration test', tasks, tags=[GraalTags.headless_java_desktop_integration]) as t:
-        if t and _should_run_headless_java_desktop_integration():
+    with Task('java.desktop integration tests', tasks, tags=[GraalTags.headless_java_desktop_integration]) as t:
+        if t and _should_run_java_desktop_integration():
             if mx.is_windows():
                 mx.warn('Headless java.desktop integration test does not run on Windows')
             else:
                 with native_image_context(IMAGE_ASSERTION_FLAGS):
-                    headless_java_desktop_integration_task(args.extra_image_builder_arguments)
+                    java_desktop_integration_task(args.extra_image_builder_arguments)
 
     with Task('conditional configuration tests', tasks, tags=[GraalTags.condconfig]) as t:
         if t:
@@ -757,12 +757,13 @@ def native_unittests_task(extra_build_args=None):
     native_image_context_run(_native_unittest, computed)
 
 
-def headless_java_desktop_integration_task(extra_build_args=None):
+def java_desktop_integration_task(extra_build_args=None):
     extra_build_args = list(extra_build_args or [])
     build_args = extra_build_args + svm_experimental_options(['-H:Preserve=module=java.desktop'])
     native_unittest([
         '--test-classes-per-run', '1',
         'com.oracle.svm.integrationtest.HeadlessJavaDesktopTest',
+        'com.oracle.svm.integrationtest.NonHeadlessJavaDesktopTest',
         '--build-args',
     ] + build_args)
 
