@@ -346,8 +346,12 @@ public class JfrThreadLocal implements ThreadListener {
          * that they match the virtual thread.
          */
         if (eventWriter != null && eventWriter.threadID != SubstrateJVM.getCurrentThreadId()) {
+            Thread currentThread = Thread.currentThread();
+            if (JavaThreads.isVirtual(currentThread)) {
+                SubstrateJVM.getThreadRepo().registerThread(currentThread);
+            }
             eventWriter.threadID = SubstrateJVM.getCurrentThreadId();
-            Target_java_lang_Thread tjlt = SubstrateUtil.cast(Thread.currentThread(), Target_java_lang_Thread.class);
+            Target_java_lang_Thread tjlt = SubstrateUtil.cast(currentThread, Target_java_lang_Thread.class);
             eventWriter.excluded = tjlt.jfrExcluded;
         }
         return eventWriter;

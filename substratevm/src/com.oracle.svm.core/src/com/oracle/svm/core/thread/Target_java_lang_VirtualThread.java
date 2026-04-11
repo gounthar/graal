@@ -40,8 +40,6 @@ import com.oracle.svm.core.annotate.InjectAccessors;
 import com.oracle.svm.core.annotate.RecomputeFieldValue;
 import com.oracle.svm.core.annotate.Substitute;
 import com.oracle.svm.core.annotate.TargetClass;
-import com.oracle.svm.core.jfr.HasJfrSupport;
-import com.oracle.svm.core.jfr.SubstrateJVM;
 import com.oracle.svm.core.monitor.MonitorSupport;
 import com.oracle.svm.shared.util.VMError;
 import com.oracle.svm.shared.Uninterruptible;
@@ -237,7 +235,7 @@ public final class Target_java_lang_VirtualThread {
 
     /*
      * GR-57064: substitution should not be needed (acquireInterruptLockMaybeSwitch should not have
-     * been necessary here), but currently cannot be removed because of the JFR registration.
+     * been necessary here).
      */
     @Substitute
     void mount() {
@@ -257,9 +255,6 @@ public final class Target_java_lang_VirtualThread {
         }
 
         carrier.setCurrentThread(asThread(this));
-        if (HasJfrSupport.get()) {
-            SubstrateJVM.getThreadRepo().registerThread(asThread(this));
-        }
     }
 
     @Alias

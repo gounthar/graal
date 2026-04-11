@@ -31,6 +31,7 @@ import org.graalvm.word.impl.Word;
 import com.oracle.svm.core.UnmanagedMemoryUtil;
 import com.oracle.svm.core.jdk.UninterruptibleUtils;
 import com.oracle.svm.core.jdk.UninterruptibleUtils.CharReplacer;
+import com.oracle.svm.core.thread.JavaThreads;
 import com.oracle.svm.core.util.DuplicatedInNativeCode;
 import com.oracle.svm.shared.Uninterruptible;
 import com.oracle.svm.shared.util.VMError;
@@ -242,7 +243,7 @@ public final class JfrNativeEventWriter {
 
     @Uninterruptible(reason = "Accesses a native JFR buffer.", callerMustBe = true)
     public static void putEventThread(JfrNativeEventWriterData data) {
-        putThread(data, SubstrateJVM.getCurrentThreadId());
+        putThread(data, Thread.currentThread());
     }
 
     @Uninterruptible(reason = "Accesses a native JFR buffer.", callerMustBe = true)
@@ -250,12 +251,26 @@ public final class JfrNativeEventWriter {
         if (thread == null) {
             putThread(data, 0L);
         } else {
+            if (JavaThreads.isVirtual(thread)) {
+                SubstrateJVM.getThreadRepo().registerThread(thread);
+            }
             putThread(data, SubstrateJVM.getThreadId(thread));
         }
     }
 
     @Uninterruptible(reason = "Accesses a native JFR buffer.", callerMustBe = true)
     public static void putThread(JfrNativeEventWriterData data, long threadId) {
+        if (threadId != 0L) {
+            long currentThreadId = JavaThreads.getCurrentThreadIdOrZero();
+            if (currentThreadId == threadId) {
+                Thread currentThread = JavaThreads.getCurrentThreadOrNull();
+                if (currentThread != null && JavaThreads.isVirtual(currentThread)) {
+                    SubstrateJVM.getThreadRepo().registerThread(currentThread);
+                }
+            } else {
+                SubstrateJVM.getThreadRepo().registerThread(threadId);
+            }
+        }
         putLong(data, threadId);
     }
 
