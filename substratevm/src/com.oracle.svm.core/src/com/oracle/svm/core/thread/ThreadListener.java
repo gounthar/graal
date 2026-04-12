@@ -31,6 +31,12 @@ import com.oracle.svm.shared.Uninterruptible;
 public interface ThreadListener {
     @Uninterruptible(reason = "Only uninterruptible code may be executed before the thread is fully started.")
     @SuppressWarnings("unused")
+    default void beforeThreadStart(IsolateThread isolateThread, Thread javaThread, long parentThreadId, String parentVThreadName) {
+        beforeThreadStart(isolateThread, javaThread);
+    }
+
+    @Uninterruptible(reason = "Only uninterruptible code may be executed before the thread is fully started.")
+    @SuppressWarnings("unused")
     default void beforeThreadStart(IsolateThread isolateThread, Thread javaThread) {
     }
 

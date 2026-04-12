@@ -74,14 +74,6 @@ public final class Target_java_lang_Thread {
 
     @Inject //
     @RecomputeFieldValue(kind = RecomputeFieldValue.Kind.Reset) //
-    long parentThreadId;
-
-    @Inject //
-    @RecomputeFieldValue(kind = RecomputeFieldValue.Kind.Reset) //
-    public String parentVThreadName;
-
-    @Inject //
-    @RecomputeFieldValue(kind = RecomputeFieldValue.Kind.Reset) //
     public boolean jfrExcluded;
 
     @Inject //
@@ -279,16 +271,10 @@ public final class Target_java_lang_Thread {
     @Platforms(InternalPlatform.NATIVE_ONLY.class)
     private void start0() {
         Thread parentThread = Thread.currentThread();
-        parentThreadId = JavaThreads.getThreadId(parentThread);
-        parentVThreadName = JavaThreads.isVirtual(parentThread) ? parentThread.getName() : null;
+        long parentThreadId = JavaThreads.getThreadId(parentThread);
+        String parentVThreadName = JavaThreads.isVirtual(parentThread) ? parentThread.getName() : null;
         long stackSize = PlatformThreads.getRequestedStackSize(JavaThreads.fromTarget(this));
-        try {
-            PlatformThreads.singleton().startThread(JavaThreads.fromTarget(this), stackSize);
-        } catch (Throwable t) {
-            parentThreadId = 0; // should not be accessed if thread could not start, but reset still
-            parentVThreadName = null;
-            throw t;
-        }
+        PlatformThreads.singleton().startThread(JavaThreads.fromTarget(this), stackSize, parentThreadId, parentVThreadName);
         /*
          * The threadStatus must be RUNNABLE before returning so the caller can safely use
          * Thread.join() on the launched thread, but the thread could also already have changed its

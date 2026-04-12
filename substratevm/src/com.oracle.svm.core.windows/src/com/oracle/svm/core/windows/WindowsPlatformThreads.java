@@ -65,7 +65,7 @@ public final class WindowsPlatformThreads extends PlatformThreads {
     }
 
     @Override
-    protected boolean doStartThread(Thread thread, long stackSize) {
+    protected boolean doStartThread(Thread thread, long stackSize, long parentThreadId, String parentVThreadName) {
         int threadStackSize = NumUtil.safeToUInt(stackSize);
         int initFlag = 0;
         // If caller specified a stack size, don't commit it all at once.
@@ -79,15 +79,15 @@ public final class WindowsPlatformThreads extends PlatformThreads {
          */
         StackOverflowCheck.singleton().makeYellowZoneAvailable();
         try {
-            return doStartThread0(thread, threadStackSize, initFlag);
+            return doStartThread0(thread, threadStackSize, initFlag, parentThreadId, parentVThreadName);
         } finally {
             StackOverflowCheck.singleton().protectYellowZone();
         }
     }
 
     /** Starts a thread to the point so that it is executing. */
-    private boolean doStartThread0(Thread thread, int threadStackSize, int initFlag) {
-        ThreadStartData startData = prepareStart(thread, SizeOf.get(ThreadStartData.class));
+    private boolean doStartThread0(Thread thread, int threadStackSize, int initFlag, long parentThreadId, String parentVThreadName) {
+        ThreadStartData startData = prepareStart(thread, SizeOf.get(ThreadStartData.class), parentThreadId, parentVThreadName);
         try {
             WinBase.HANDLE osThreadHandle = Process._beginthreadex(Word.nullPointer(), threadStackSize, threadStartRoutine.getFunctionPointer(), startData, initFlag, Word.nullPointer());
             if (osThreadHandle.isNull()) {
