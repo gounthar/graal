@@ -40,7 +40,6 @@ import org.junit.After;
 import com.oracle.svm.test.jfr.events.EndStreamEvent;
 import com.oracle.svm.test.jfr.events.StartStreamEvent;
 
-import jdk.jfr.Configuration;
 import jdk.jfr.consumer.RecordingStream;
 
 public abstract class JfrStreamingTest extends AbstractJfrTest {
@@ -61,8 +60,7 @@ public abstract class JfrStreamingTest extends AbstractJfrTest {
     }
 
     protected RecordingStream startStream(String[] events, Consumer<RecordingStream> configurer) throws Throwable {
-        Configuration config = getDefaultConfiguration();
-        RecordingStream stream = new RecordingStream(config);
+        RecordingStream stream = new RecordingStream();
         streamStates.put(stream, new JfrStreamState(events));
 
         stream.setMaxSize(JFR_MAX_SIZE);
