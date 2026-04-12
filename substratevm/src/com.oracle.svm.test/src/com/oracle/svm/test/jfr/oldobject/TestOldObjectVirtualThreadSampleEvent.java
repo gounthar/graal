@@ -72,7 +72,7 @@ public class TestOldObjectVirtualThreadSampleEvent extends JfrOldObjectTest {
         stopRecording(recording, events -> validateVirtualThreadEvents(events, TinyObject.class, arrayLength, sampledThreadId.get()));
     }
 
-    private void validateVirtualThreadEvents(List<RecordedEvent> events, Class<?> expectedSampledType, int expectedArrayLength, long expectedThreadId) {
+    private static void validateVirtualThreadEvents(List<RecordedEvent> events, Class<?> expectedSampledType, int expectedArrayLength, long expectedThreadId) {
         assertFalse(events.isEmpty());
 
         int matchingEvents = 0;

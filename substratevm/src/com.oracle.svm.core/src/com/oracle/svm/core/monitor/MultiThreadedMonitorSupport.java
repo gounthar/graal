@@ -272,6 +272,7 @@ public class MultiThreadedMonitorSupport extends MonitorSupport {
                     JavaMonitorInflateEvent.emit(obj, startTicks, MonitorInflationCause.MONITOR_ENTER);
                     if (HasJfrSupport.get()) {
                         newMonitor.latestJfrTid = current;
+                        newMonitor.latestJfrVThreadName = JavaThreads.isCurrentThreadVirtual() ? Thread.currentThread().getName() : null;
                     }
                     return;
                 }

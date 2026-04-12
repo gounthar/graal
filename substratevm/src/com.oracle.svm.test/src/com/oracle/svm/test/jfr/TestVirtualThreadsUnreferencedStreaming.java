@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
 
@@ -61,14 +62,17 @@ public class TestVirtualThreadsUnreferencedStreaming extends JfrStreamingTest {
         stringEvent.message = MARKER;
         stringEvent.commit();
 
-        VirtualStressor.execute(THREADS, () -> {
+        AtomicInteger completedThreads = new AtomicInteger();
+        VirtualStressor.executeAsync(THREADS, () -> {
             try {
                 long threadId = (Long) Thread.class.getMethod("threadId").invoke(Thread.currentThread());
                 unreferencedVirtualThreadIds.add(threadId);
+                completedThreads.incrementAndGet();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         });
+        waitUntilTrue(() -> completedThreads.get() == THREADS);
 
         dumpedRecording = createTempJfrFile();
         stream.dump(dumpedRecording);

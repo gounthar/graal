@@ -52,6 +52,7 @@ import org.graalvm.word.impl.Word;
 public abstract class JavaVMOperation extends VMOperation implements VMOperationControl.JavaAllocationFreeQueue.Element<JavaVMOperation> {
     protected IsolateThread queuingThread;
     private long queuingThreadId;
+    private String queuingVThreadName;
     private JavaVMOperation next;
     private volatile boolean finished;
 
@@ -91,6 +92,11 @@ public abstract class JavaVMOperation extends VMOperation implements VMOperation
     }
 
     @Override
+    protected String getQueuingVThreadName(NativeVMOperationData data) {
+        return queuingVThreadName;
+    }
+
+    @Override
     protected boolean isFinished(NativeVMOperationData data) {
         return finished;
     }
@@ -101,12 +107,15 @@ public abstract class JavaVMOperation extends VMOperation implements VMOperation
         finished = false;
         queuingThread = CurrentIsolate.getCurrentThread();
         queuingThreadId = JavaThreads.getCurrentThreadIdOrZero();
+        Thread currentThread = JavaThreads.getCurrentThreadOrNull();
+        queuingVThreadName = currentThread != null && JavaThreads.isVirtual(currentThread) ? currentThread.getName() : null;
     }
 
     @Override
     protected void markAsFinished(NativeVMOperationData data) {
         queuingThread = Word.nullPointer();
         queuingThreadId = 0;
+        queuingVThreadName = null;
         finished = true;
     }
 

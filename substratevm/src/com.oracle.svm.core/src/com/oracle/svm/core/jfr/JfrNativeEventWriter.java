@@ -269,6 +269,19 @@ public final class JfrNativeEventWriter {
     }
 
     @Uninterruptible(reason = "Accesses a native JFR buffer.", callerMustBe = true)
+    public static void putRegisteredThreadId(JfrNativeEventWriterData data, long threadId, String virtualThreadName) {
+        if (virtualThreadName != null) {
+            /*
+             * Delayed event paths may retain only a virtual thread id across chunk rotations. In
+             * that case, re-register the virtual thread metadata in the current epoch before
+             * writing the reference.
+             */
+            SubstrateJVM.getThreadRepo().registerVirtualThread(threadId, virtualThreadName);
+        }
+        putRegisteredThreadId(data, threadId);
+    }
+
+    @Uninterruptible(reason = "Accesses a native JFR buffer.", callerMustBe = true)
     public static void putClass(JfrNativeEventWriterData data, Class<?> aClass) {
         if (aClass == null) {
             putLong(data, 0L);
