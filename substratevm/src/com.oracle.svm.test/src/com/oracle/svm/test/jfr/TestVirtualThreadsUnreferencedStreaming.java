@@ -58,8 +58,8 @@ public class TestVirtualThreadsUnreferencedStreaming extends JfrStreamingTest {
         RecordingStream stream = startStream(events, s -> {
             /*
              * This test verifies that streamed events do not retain virtual threads that are not
-             * referenced by the streamed payload. Disable unrelated default thread lifecycle
-             * events so incidental ThreadStart/ThreadEnd metadata does not affect the assertion.
+             * referenced by the streamed payload. Disable unrelated default thread lifecycle events
+             * so incidental ThreadStart/ThreadEnd metadata does not affect the assertion.
              */
             s.disable("jdk.ThreadStart");
             s.disable("jdk.ThreadEnd");
