@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 
 import org.junit.Test;
 
@@ -55,6 +56,13 @@ public class TestVirtualThreadsUnreferencedStreaming extends JfrStreamingTest {
 
     @Test
     public void test() throws Throwable {
+        /*
+         * The default JFR configuration enables jdk.ThreadStart. Warm up the virtual thread
+         * scheduler before starting the stream so carrier bootstrap does not introduce incidental
+         * parent-thread references to the virtual threads that this test tracks as "unreferenced".
+         */
+        VirtualStressor.execute(THREADS * 4, () -> LockSupport.parkNanos(1));
+
         String[] events = new String[]{"com.jfr.String"};
         RecordingStream stream = startStream(events);
 
