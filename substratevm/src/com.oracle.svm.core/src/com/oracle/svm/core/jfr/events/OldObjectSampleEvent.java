@@ -45,7 +45,7 @@ public class OldObjectSampleEvent {
             JfrNativeEventWriter.beginSmallEvent(data, JfrEvent.OldObjectSample);
             JfrNativeEventWriter.putLong(data, startTicks); // start time
             JfrNativeEventWriter.putLong(data, 0); // duration
-            JfrNativeEventWriter.putLong(data, threadId);
+            JfrNativeEventWriter.putRegisteredThreadId(data, threadId);
             JfrNativeEventWriter.putLong(data, stackTraceId);
             JfrNativeEventWriter.putLong(data, allocationTicks); // allocation time
             JfrNativeEventWriter.putLong(data, objectSize.rawValue());

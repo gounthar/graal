@@ -147,6 +147,14 @@ final class JfrOldObjectSampler {
     @Uninterruptible(reason = "Must not safepoint while holding the object profiler lock.")
     private void store(Object obj, UnsignedWord span, UnsignedWord allocatedSize, int arrayLength) {
         Thread thread = JavaThreads.getCurrentThreadOrNull();
+        if (thread != null && JavaThreads.isVirtual(thread)) {
+            /*
+             * OldObjectSample events are emitted later from the profiler queue and retain only the
+             * allocating thread id, so virtual threads must be registered while their Thread object
+             * is still available.
+             */
+            SubstrateJVM.getThreadRepo().registerThread(thread);
+        }
         long threadId = thread == null ? 0L : JavaThreads.getThreadId(thread);
         long stackTraceId = thread == null ? 0L : SubstrateJVM.get().getStackTraceId(JfrEvent.OldObjectSample);
         UnsignedWord heapUsedAfterLastGC = Heap.getHeap().getUsedMemoryAfterLastGC();
