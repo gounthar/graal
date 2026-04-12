@@ -61,7 +61,7 @@ public class ExecuteVMOperationEvent {
             JfrNativeEventWriter.putLong(data, vmOperation.getId() + 1); // id starts with 1
             JfrNativeEventWriter.putBoolean(data, vmOperation.getCausesSafepoint());
             JfrNativeEventWriter.putBoolean(data, vmOperation.isBlocking());
-            JfrNativeEventWriter.putThread(data, requestingThreadId);
+            JfrNativeEventWriter.putRegisteredThreadId(data, requestingThreadId);
             JfrNativeEventWriter.putLong(data, vmOperation.getCausesSafepoint() ? Safepoint.singleton().getSafepointId().rawValue() : 0);
             JfrNativeEventWriter.endSmallEvent(data);
         }

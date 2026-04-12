@@ -58,7 +58,7 @@ public class JavaMonitorWaitEvent {
             JfrNativeEventWriter.putEventThread(data);
             JfrNativeEventWriter.putLong(data, SubstrateJVM.get().getStackTraceId(JfrEvent.JavaMonitorWait));
             JfrNativeEventWriter.putClass(data, obj.getClass());
-            JfrNativeEventWriter.putThread(data, notifierTid);
+            JfrNativeEventWriter.putRegisteredThreadId(data, notifierTid);
             JfrNativeEventWriter.putLong(data, timeout);
             JfrNativeEventWriter.putBoolean(data, timedOut);
             JfrNativeEventWriter.putLong(data, Word.objectToUntrackedPointer(obj).rawValue());

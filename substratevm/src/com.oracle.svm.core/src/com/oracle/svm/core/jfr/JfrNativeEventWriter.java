@@ -243,37 +243,28 @@ public final class JfrNativeEventWriter {
 
     @Uninterruptible(reason = "Accesses a native JFR buffer.", callerMustBe = true)
     public static void putEventThread(JfrNativeEventWriterData data) {
-        putThread(data, Thread.currentThread());
+        putCurrentThread(data);
+    }
+
+    @Uninterruptible(reason = "Accesses a native JFR buffer.", callerMustBe = true)
+    public static void putCurrentThread(JfrNativeEventWriterData data) {
+        putThread(data, JavaThreads.getCurrentThreadOrNull());
     }
 
     @Uninterruptible(reason = "Accesses a native JFR buffer.", callerMustBe = true)
     public static void putThread(JfrNativeEventWriterData data, Thread thread) {
         if (thread == null) {
-            putThread(data, 0L);
+            putRegisteredThreadId(data, 0L);
         } else {
             if (JavaThreads.isVirtual(thread)) {
                 SubstrateJVM.getThreadRepo().registerThread(thread);
             }
-            putThread(data, SubstrateJVM.getThreadId(thread));
+            putRegisteredThreadId(data, SubstrateJVM.getThreadId(thread));
         }
     }
 
     @Uninterruptible(reason = "Accesses a native JFR buffer.", callerMustBe = true)
-    public static void putThread(JfrNativeEventWriterData data, long threadId) {
-        if (threadId != 0L) {
-            long currentThreadId = JavaThreads.getCurrentThreadIdOrZero();
-            if (currentThreadId == threadId) {
-                Thread currentThread = JavaThreads.getCurrentThreadOrNull();
-                if (currentThread != null && JavaThreads.isVirtual(currentThread)) {
-                    /*
-                     * Arbitrary raw thread ids do not carry enough metadata to synthesize a correct
-                     * thread constant pool entry. Only lazily register the current virtual thread
-                     * when we can still access its Thread object.
-                     */
-                    SubstrateJVM.getThreadRepo().registerThread(currentThread);
-                }
-            }
-        }
+    public static void putRegisteredThreadId(JfrNativeEventWriterData data, long threadId) {
         putLong(data, threadId);
     }
 
