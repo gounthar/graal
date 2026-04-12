@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Consumer;
 
 import org.junit.After;
 
@@ -55,6 +56,11 @@ public abstract class JfrStreamingTest extends AbstractJfrTest {
     }
 
     protected RecordingStream startStream(String[] events) throws Throwable {
+        return startStream(events, _ -> {
+        });
+    }
+
+    protected RecordingStream startStream(String[] events, Consumer<RecordingStream> configurer) throws Throwable {
         Configuration config = getDefaultConfiguration();
         RecordingStream stream = new RecordingStream(config);
         streamStates.put(stream, new JfrStreamState(events));
@@ -69,6 +75,7 @@ public abstract class JfrStreamingTest extends AbstractJfrTest {
             stream.close();
             streamStates.get(stream).endedSuccessfully = true;
         });
+        configurer.accept(stream);
         enableEvents(stream, events);
         startStream(stream);
         return stream;
