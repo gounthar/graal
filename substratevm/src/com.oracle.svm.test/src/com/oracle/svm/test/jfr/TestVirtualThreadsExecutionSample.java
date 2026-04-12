@@ -50,8 +50,11 @@ import jdk.jfr.consumer.RecordedThread;
 public class TestVirtualThreadsExecutionSample extends JfrRecordingTest {
     private static final Duration SAMPLE_PERIOD = Duration.ofMillis(10);
     private static final long WAIT_FOR_SAMPLES_MILLIS = 500;
+    private static final String LONG_LIVED_SAMPLE_METHOD = "spinUntil";
+    private static final String SHORT_LIVED_SAMPLE_METHOD = "spinForDuration";
 
     private final AtomicLong sampledVirtualThreadId = new AtomicLong();
+    private final AtomicLong shortLivedVirtualThreadId = new AtomicLong();
     private Instant rotationTime;
 
     @Test
@@ -83,6 +86,22 @@ public class TestVirtualThreadsExecutionSample extends JfrRecordingTest {
         stopRecording(recording, this::validateExecutionSamplesAfterRotation);
     }
 
+    @Test
+    public void testShortLivedVirtualThreadExecutionSampleAfterChunkRotation() throws Throwable {
+        Recording recording = startExecutionSampleRecording();
+
+        recording.dump(createTempJfrFile());
+        rotationTime = Instant.now();
+
+        Thread thread = Thread.ofVirtual().start(() -> {
+            shortLivedVirtualThreadId.set(Thread.currentThread().threadId());
+            spinForDuration(WAIT_FOR_SAMPLES_MILLIS);
+        });
+        thread.join();
+
+        stopRecording(recording, this::validateShortLivedExecutionSamplesAfterRotation);
+    }
+
     private Recording startExecutionSampleRecording() throws Throwable {
         Map<String, String> settings = new HashMap<>();
         settings.put("flush-interval", "0");
@@ -106,49 +125,82 @@ public class TestVirtualThreadsExecutionSample extends JfrRecordingTest {
     }
 
     private void validateExecutionSamples(List<RecordedEvent> events) {
-        validateExecutionSamples(events, false);
+        validateExecutionSamples(events, false, sampledVirtualThreadId.get(), LONG_LIVED_SAMPLE_METHOD);
     }
 
     private void validateExecutionSamplesAfterRotation(List<RecordedEvent> events) {
         assertNotNull("Chunk rotation marker must be recorded.", rotationTime);
-        validateExecutionSamples(events, true);
+        validateExecutionSamples(events, true, sampledVirtualThreadId.get(), LONG_LIVED_SAMPLE_METHOD);
     }
 
-    private void validateExecutionSamples(List<RecordedEvent> events, boolean afterRotationOnly) {
-        long expectedThreadId = sampledVirtualThreadId.get();
+    private void validateShortLivedExecutionSamplesAfterRotation(List<RecordedEvent> events) {
+        assertNotNull("Chunk rotation marker must be recorded.", rotationTime);
+        validateExecutionSamples(events, true, shortLivedVirtualThreadId.get(), SHORT_LIVED_SAMPLE_METHOD);
+    }
+
+    private void validateExecutionSamples(List<RecordedEvent> events, boolean afterRotationOnly, long expectedThreadId, String expectedMethodName) {
         assertTrue(expectedThreadId > 0);
 
         int matchingEvents = 0;
+        int correctlyResolvedEvents = 0;
+        int missingSampledThreadEvents = 0;
+        int wrongSampledThreadEvents = 0;
+        String firstMissingSampledThreadRawValue = null;
         for (RecordedEvent event : events) {
             if (afterRotationOnly && !event.getEndTime().isAfter(rotationTime)) {
                 continue;
             }
 
-            if (!containsBusyVirtualThreadFrame(event)) {
+            if (!containsFrame(event, expectedMethodName)) {
                 continue;
             }
 
             RecordedThread sampledThread = event.getThread("sampledThread");
-            assertNotNull("ExecutionSample is missing sampledThread data.", sampledThread);
-            assertTrue("ExecutionSample resolved the wrong sampledThread.", sampledThread.getJavaThreadId() == expectedThreadId);
             matchingEvents++;
+            if (sampledThread == null) {
+                missingSampledThreadEvents++;
+                if (firstMissingSampledThreadRawValue == null) {
+                    Object rawSampledThread = event.getValue("sampledThread");
+                    firstMissingSampledThreadRawValue = rawSampledThread == null ? "null" : rawSampledThread.getClass().getName() + ":" + rawSampledThread;
+                }
+            } else if (sampledThread.getJavaThreadId() == expectedThreadId) {
+                correctlyResolvedEvents++;
+            } else {
+                wrongSampledThreadEvents++;
+            }
         }
 
         String expectation = afterRotationOnly ? "post-rotation " : "";
         assertTrue("Expected at least one " + expectation + "ExecutionSample event for the virtual thread.", matchingEvents > 0);
+        assertTrue("ExecutionSample resolved " + correctlyResolvedEvents + "/" + matchingEvents + " matching events, with " +
+                        missingSampledThreadEvents + " missing sampledThread values and " + wrongSampledThreadEvents + " wrong sampledThread values. " +
+                        "First missing raw sampledThread value: " + firstMissingSampledThreadRawValue,
+                        correctlyResolvedEvents == matchingEvents);
     }
 
-    private static boolean containsBusyVirtualThreadFrame(RecordedEvent event) {
+    private static boolean containsFrame(RecordedEvent event, String expectedMethodName) {
         RecordedStackTrace stackTrace = event.getStackTrace();
         assertNotNull("ExecutionSample is missing a stack trace.", stackTrace);
 
         for (RecordedFrame frame : stackTrace.getFrames()) {
             if (frame.getMethod().getType().getName().equals(TestVirtualThreadsExecutionSample.class.getName()) &&
-                            frame.getMethod().getName().equals("spinUntil")) {
+                            frame.getMethod().getName().equals(expectedMethodName)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static void spinForDuration(long durationMillis) {
+        long deadline = System.nanoTime() + Duration.ofMillis(durationMillis).toNanos();
+        long value = 0;
+        while (System.nanoTime() < deadline) {
+            value++;
+            if ((value & 0xFF) == 0) {
+                Thread.onSpinWait();
+            }
+        }
+        assertTrue(value > 0);
     }
 
     private static void spinUntil(AtomicBoolean stop) {

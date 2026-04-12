@@ -52,9 +52,11 @@ public class TestJavaLevelVirtualThreadChunkRotation extends JfrRecordingTest {
     private static final int THREADS = 3;
     private static final String BEFORE_PREFIX = "before-";
     private static final String AFTER_PREFIX = "after-";
+    private static final String SHORT_LIVED_AFTER_PREFIX = "short-after-";
 
     private final AtomicInteger emittedBeforeRotation = new AtomicInteger(0);
     private final Set<Long> expectedAfterRotationThreads = Collections.synchronizedSet(new HashSet<>()); // noEconomicSet(synchronization)
+    private volatile long expectedShortLivedAfterRotationThread;
 
     private volatile boolean proceed;
 
@@ -87,6 +89,23 @@ public class TestJavaLevelVirtualThreadChunkRotation extends JfrRecordingTest {
         stopRecording(recording, this::validateEvents);
     }
 
+    @Test
+    public void testShortLivedThreadAfterChunkRotation() throws Throwable {
+        String[] events = new String[]{"com.jfr.String"};
+        Recording recording = startRecording(events);
+
+        recording.dump(createTempJfrFile());
+
+        Thread thread = Thread.ofVirtual().start(() -> {
+            long threadId = Thread.currentThread().threadId();
+            expectedShortLivedAfterRotationThread = threadId;
+            emitStringEvent(SHORT_LIVED_AFTER_PREFIX + threadId);
+        });
+        thread.join();
+
+        stopRecording(recording, this::validateShortLivedAfterRotationEvent);
+    }
+
     private void validateEvents(List<RecordedEvent> events) {
         int afterRotationEvents = 0;
         for (RecordedEvent event : events) {
@@ -101,6 +120,23 @@ public class TestJavaLevelVirtualThreadChunkRotation extends JfrRecordingTest {
 
         assertEquals(THREADS, afterRotationEvents);
         assertTrue(expectedAfterRotationThreads.isEmpty());
+    }
+
+    private void validateShortLivedAfterRotationEvent(List<RecordedEvent> events) {
+        assertTrue(expectedShortLivedAfterRotationThread > 0);
+
+        int matchingEvents = 0;
+        for (RecordedEvent event : events) {
+            String message = event.getString("message");
+            if (message != null && message.equals(SHORT_LIVED_AFTER_PREFIX + expectedShortLivedAfterRotationThread)) {
+                RecordedThread eventThread = event.getThread("eventThread");
+                assertNotNull("Short-lived virtual thread data is missing after chunk rotation.", eventThread);
+                assertEquals(expectedShortLivedAfterRotationThread, eventThread.getJavaThreadId());
+                matchingEvents++;
+            }
+        }
+
+        assertEquals(1, matchingEvents);
     }
 
     private static void emitStringEvent(String message) {

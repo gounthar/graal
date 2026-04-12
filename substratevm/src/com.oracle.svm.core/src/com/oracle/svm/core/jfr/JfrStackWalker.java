@@ -54,6 +54,7 @@ import com.oracle.svm.core.stack.JavaFrameAnchors;
 import com.oracle.svm.core.stack.JavaFrames;
 import com.oracle.svm.core.stack.JavaStackWalk;
 import com.oracle.svm.core.stack.JavaStackWalker;
+import com.oracle.svm.core.thread.JavaThreads;
 import com.oracle.svm.core.thread.VMThreads;
 import com.oracle.svm.core.util.PointerUtils;
 import com.oracle.svm.shared.Uninterruptible;
@@ -87,6 +88,15 @@ public final class JfrStackWalker {
     public static void walkCurrentThread(CodePointer initialIP, Pointer initialSP, boolean isAsync) {
         SamplerSampleWriterData data = UnsafeStackValue.get(SamplerSampleWriterData.class);
         if (SamplerSampleWriterDataAccess.initialize(data, 0, false)) {
+            Thread currentThread = JavaThreads.getCurrentThreadOrNull();
+            if (currentThread != null && JavaThreads.isVirtual(currentThread)) {
+                /*
+                 * ExecutionSample events are materialized later from the raw sampler buffer and
+                 * only retain the sampled thread id. Register the current virtual thread while its
+                 * Thread object is still available so the eventual event can resolve sampledThread.
+                 */
+                SubstrateJVM.getThreadRepo().registerThread(currentThread);
+            }
             SamplerSampleWriter.begin(data);
             int result = walkCurrentThread(data, initialIP, initialSP, isAsync);
 
