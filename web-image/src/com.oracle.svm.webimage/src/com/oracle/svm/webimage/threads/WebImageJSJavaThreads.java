@@ -47,7 +47,7 @@ import com.oracle.svm.webimage.platform.WebImagePlatform;
 public class WebImageJSJavaThreads extends PlatformThreads {
 
     @Override
-    protected boolean doStartThread(Thread thread, long stackSize) {
+    protected boolean doStartThread(Thread thread, long stackSize, long parentThreadId, String parentVThreadName) {
         // Not supported
         return false;
     }
