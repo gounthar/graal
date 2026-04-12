@@ -37,8 +37,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.graalvm.word.impl.Word;
+import org.junit.Assert;
 import org.junit.Test;
 
+import com.oracle.svm.core.jfr.HasJfrSupport;
 import com.oracle.svm.core.jfr.SubstrateJVM;
 import com.oracle.svm.core.util.TimeUtils;
 
@@ -51,6 +53,12 @@ import jdk.jfr.consumer.RecordedThread;
 public class TestOldObjectVirtualThreadSampleEvent extends JfrOldObjectTest {
     @Test
     public void test() throws Throwable {
+        if (!HasJfrSupport.get()) {
+            /* Prevent that the code below is reachable on platforms that don't support JFR. */
+            Assert.fail("JFR is not supported on this platform.");
+            return;
+        }
+
         int arrayLength = Integer.MIN_VALUE;
         TinyObject obj = new TinyObject(44);
         AtomicLong sampledThreadId = new AtomicLong();
@@ -108,6 +116,12 @@ public class TestOldObjectVirtualThreadSampleEvent extends JfrOldObjectTest {
 
     @SuppressWarnings("unused")
     private static void sampleInVirtualThread(TinyObject obj, int arrayLength, AtomicReference<Throwable> failure) {
+        if (!HasJfrSupport.get()) {
+            /* Prevent that the code below is reachable on platforms that don't support JFR. */
+            Assert.fail("JFR is not supported on this platform.");
+            return;
+        }
+
         boolean success;
         long endTime = System.currentTimeMillis() + TimeUtils.secondsToMillis(5);
         do {
