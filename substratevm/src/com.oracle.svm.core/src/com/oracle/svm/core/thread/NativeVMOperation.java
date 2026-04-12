@@ -68,7 +68,7 @@ public abstract class NativeVMOperation extends VMOperation {
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     @Override
     protected String getQueuingVThreadName(NativeVMOperationData data) {
-        return data.getQueuingVThreadName();
+        return null;
     }
 
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
@@ -83,15 +83,12 @@ public abstract class NativeVMOperation extends VMOperation {
         data.setFinished(false);
         data.setQueuingThread(CurrentIsolate.getCurrentThread());
         data.setQueuingThreadId(JavaThreads.getCurrentThreadIdOrZero());
-        Thread currentThread = JavaThreads.getCurrentThreadOrNull();
-        data.setQueuingVThreadName(currentThread != null && JavaThreads.isVirtual(currentThread) ? currentThread.getName() : null);
     }
 
     @Override
     protected void markAsFinished(NativeVMOperationData data) {
         data.setQueuingThread(Word.nullPointer());
         data.setQueuingThreadId(0);
-        data.setQueuingVThreadName(null);
         data.setFinished(true);
     }
 }
