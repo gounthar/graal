@@ -265,10 +265,13 @@ public final class JfrNativeEventWriter {
             if (currentThreadId == threadId) {
                 Thread currentThread = JavaThreads.getCurrentThreadOrNull();
                 if (currentThread != null && JavaThreads.isVirtual(currentThread)) {
+                    /*
+                     * Arbitrary raw thread ids do not carry enough metadata to synthesize a correct
+                     * thread constant pool entry. Only lazily register the current virtual thread
+                     * when we can still access its Thread object.
+                     */
                     SubstrateJVM.getThreadRepo().registerThread(currentThread);
                 }
-            } else {
-                SubstrateJVM.getThreadRepo().registerThread(threadId);
             }
         }
         putLong(data, threadId);

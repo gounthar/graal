@@ -126,29 +126,11 @@ public final class JfrThreadRepository implements JfrRepository {
         registerThread0(thread, isVirtual);
     }
 
-    /**
-     * Register a virtual thread by id when an event references it but no {@link Thread} object is
-     * available at the write site.
-     */
-    @Uninterruptible(reason = "Locking without transition requires that the whole critical section is uninterruptible.")
-    public void registerThread(long threadId) {
-        if (!SubstrateJVM.get().isRecording()) {
-            return;
-        }
-
-        registerThread0(threadId, 0, true, null, null);
-    }
-
     @Uninterruptible(reason = "Locking without transition requires that the whole critical section is uninterruptible.")
     private void registerThread0(Thread thread, boolean isVirtual) {
         long threadId = JavaThreads.getThreadId(thread);
         long osThreadId = isVirtual ? 0 : threadId;
         String name = thread.getName();
-        registerThread0(threadId, osThreadId, isVirtual, thread, name);
-    }
-
-    @Uninterruptible(reason = "Locking without transition requires that the whole critical section is uninterruptible.")
-    private void registerThread0(long threadId, long osThreadId, boolean isVirtual, Thread thread, String name) {
         JfrVisited visitedThread = StackValue.get(JfrVisited.class);
         visitedThread.setId(threadId);
         visitedThread.setHash(UninterruptibleUtils.Long.hashCode(threadId));
@@ -182,7 +164,7 @@ public final class JfrThreadRepository implements JfrRepository {
                 return;
             }
 
-            if (isVirtual && thread != null) {
+            if (isVirtual) {
                 Target_java_lang_VirtualThread vthread = JavaThreads.toVirtualTarget(thread);
                 vthread.jfrEpochId = JfrTraceIdEpoch.getInstance().currentEpochId();
             }

@@ -64,7 +64,7 @@ public class TestJavaLevelVirtualThreadChunkRotation extends JfrRecordingTest {
         Recording recording = startRecording(events);
 
         Runnable eventEmitter = () -> {
-            long threadId = getCurrentThreadId();
+            long threadId = Thread.currentThread().threadId();
 
             emitStringEvent(BEFORE_PREFIX + threadId);
             emittedBeforeRotation.incrementAndGet();
@@ -107,13 +107,5 @@ public class TestJavaLevelVirtualThreadChunkRotation extends JfrRecordingTest {
         StringEvent stringEvent = new StringEvent();
         stringEvent.message = message;
         stringEvent.commit();
-    }
-
-    private static long getCurrentThreadId() {
-        try {
-            return (Long) Thread.class.getMethod("threadId").invoke(Thread.currentThread());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 }
