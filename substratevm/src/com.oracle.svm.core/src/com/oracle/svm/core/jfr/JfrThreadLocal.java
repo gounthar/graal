@@ -340,19 +340,26 @@ public class JfrThreadLocal implements ThreadListener {
 
     public static Target_jdk_jfr_internal_event_EventWriter getEventWriter() {
         Target_jdk_jfr_internal_event_EventWriter eventWriter = javaEventWriter.get();
-        /*
-         * EventWriter objects cache various thread-specific values. Virtual threads use the
-         * EventWriter object of their carrier thread, so we need to update all cached values so
-         * that they match the virtual thread.
-         */
-        if (eventWriter != null && eventWriter.threadID != SubstrateJVM.getCurrentThreadId()) {
+        if (eventWriter != null) {
             Thread currentThread = Thread.currentThread();
             if (JavaThreads.isVirtual(currentThread)) {
+                /*
+                 * The Java-level EventWriter can stay associated with a long-lived virtual thread
+                 * across chunk rotations. Re-register the vthread so its constant pool entry is
+                 * present in the current epoch before the next event is committed.
+                 */
                 SubstrateJVM.getThreadRepo().registerThread(currentThread);
             }
-            eventWriter.threadID = SubstrateJVM.getCurrentThreadId();
-            Target_java_lang_Thread tjlt = SubstrateUtil.cast(currentThread, Target_java_lang_Thread.class);
-            eventWriter.excluded = tjlt.jfrExcluded;
+            /*
+             * EventWriter objects cache various thread-specific values. Virtual threads use the
+             * EventWriter object of their carrier thread, so we need to update all cached values so
+             * that they match the virtual thread.
+             */
+            if (eventWriter.threadID != SubstrateJVM.getCurrentThreadId()) {
+                eventWriter.threadID = SubstrateJVM.getCurrentThreadId();
+                Target_java_lang_Thread tjlt = SubstrateUtil.cast(currentThread, Target_java_lang_Thread.class);
+                eventWriter.excluded = tjlt.jfrExcluded;
+            }
         }
         return eventWriter;
     }
