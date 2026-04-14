@@ -100,9 +100,10 @@ final class SSAVerifier {
             op.visitEachAlive(this::useConsumer);
             op.visitEachState(this::useConsumer);
             op.visitEachInput(this::useConsumer);
+            // The UseKillMoveInjectionPhase runs after SSA verification, so @UseKill still refers
+            // to the original SSA value here and must not be treated as a fresh definition.
             op.visitEachUseKill(this::useConsumer);
 
-            op.visitEachUseKill(this::defConsumer);
             op.visitEachTemp(this::defConsumer);
             op.visitEachOutput(this::defConsumer);
 

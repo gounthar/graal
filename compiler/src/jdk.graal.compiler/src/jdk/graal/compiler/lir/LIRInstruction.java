@@ -98,8 +98,9 @@ public abstract class LIRInstruction {
 
         /**
          * The value must have been defined before. It is read at the beginning of the instruction,
-         * and then killed by the instruction. A register assigned to it can also be assigned to a
-         * {@link #TEMP} or {@link #DEF} operand after the use.
+         * and then killed by the instruction. The value is not live after the instruction, but its
+         * lifetime still overlaps the instruction, so a register assigned to it cannot also be
+         * assigned to a {@link #TEMP} or {@link #DEF} operand of the same instruction.
          */
         USE_KILL,
 
@@ -220,7 +221,7 @@ public abstract class LIRInstruction {
     static {
         ALLOWED_FLAGS = new EnumMap<>(OperandMode.class);
         ALLOWED_FLAGS.put(OperandMode.USE, EnumSet.of(REG, STACK, COMPOSITE, CONST, ILLEGAL, HINT, UNINITIALIZED));
-        ALLOWED_FLAGS.put(USE_KILL, EnumSet.of(REG, STACK, COMPOSITE, ILLEGAL, HINT));
+        ALLOWED_FLAGS.put(USE_KILL, EnumSet.of(REG, STACK, COMPOSITE, ILLEGAL));
         ALLOWED_FLAGS.put(ALIVE, EnumSet.of(REG, STACK, COMPOSITE, CONST, ILLEGAL, HINT, UNINITIALIZED, OUTGOING));
         ALLOWED_FLAGS.put(TEMP, EnumSet.of(REG, STACK, COMPOSITE, ILLEGAL, HINT));
         ALLOWED_FLAGS.put(DEF, EnumSet.of(REG, STACK, COMPOSITE, ILLEGAL, HINT));

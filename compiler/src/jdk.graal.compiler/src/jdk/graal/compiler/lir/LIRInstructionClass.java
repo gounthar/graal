@@ -304,14 +304,10 @@ public class LIRInstructionClass<T> extends LIRIntrospection<T> {
     }
 
     final Value forEachRegisterHint(LIRInstruction obj, OperandMode mode, InstructionValueProcedure proc) {
-        if (mode == OperandMode.USE || mode == OperandMode.USE_KILL) {
+        if (mode == OperandMode.USE) {
             return forEachRegisterHint(obj, defs, proc);
         } else if (mode == OperandMode.DEF) {
-            Value result = forEachRegisterHint(obj, uses, proc);
-            if (result != null) {
-                return result;
-            }
-            return forEachRegisterHint(obj, useKills, proc);
+            return forEachRegisterHint(obj, uses, proc);
         } else {
             return null;
         }
