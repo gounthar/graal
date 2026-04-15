@@ -349,7 +349,7 @@ public final class Resources {
         Module m = module != null && module.isNamed() ? module : null;
         synchronized (resources) {
             ModuleResourceKey key = createStorageKey(m, resourceName);
-            RuntimeDynamicAccessMetadata dynamicAccessMetadata = RuntimeDynamicAccessMetadata.emptySet(false);
+            RuntimeDynamicAccessMetadata dynamicAccessMetadata = RuntimeDynamicAccessMetadata.alwaysAllow(false);
             ConditionalRuntimeValue<ResourceStorageEntryBase> entry = resources.get(key);
             if (isNegativeQuery) {
                 if (entry == null) {
@@ -410,7 +410,7 @@ public final class Resources {
         ModuleResourceKey key = createStorageKey(module, resourceName);
         synchronized (resources) {
             updateTimeStamp();
-            addResource(key, new ConditionalRuntimeValue<>(RuntimeDynamicAccessMetadata.emptySet(false), new ResourceExceptionEntry(e)));
+            addResource(key, new ConditionalRuntimeValue<>(RuntimeDynamicAccessMetadata.alwaysAllow(false), new ResourceExceptionEntry(e)));
         }
     }
 
@@ -440,7 +440,7 @@ public final class Resources {
              * Keep a single metadata entry per (module, pattern) and merge all conditions into it.
              * This preserves unconditional registrations even when conditional entries are present.
              */
-            RuntimeDynamicAccessMetadata dynamicAccessMetadata = RuntimeDynamicAccessMetadata.emptySet(false);
+            RuntimeDynamicAccessMetadata dynamicAccessMetadata = RuntimeDynamicAccessMetadata.alwaysAllow(false);
             RuntimeDynamicAccessMetadata registered = requestedPatterns.putIfAbsent(pattern, dynamicAccessMetadata);
             (registered == null ? dynamicAccessMetadata : registered).addCondition(condition);
         }

@@ -614,7 +614,7 @@ public class RuntimeMetadataEncoderImpl implements RuntimeMetadataEncoder {
         encoders.classes.addObject(type.getJavaClass());
 
         addType(declaringType);
-        registerField(declaringType, analysisField, new FieldMetadata(RuntimeDynamicAccessMetadata.emptySet(false), declaringType, name, type, modifiers));
+        registerField(declaringType, analysisField, new FieldMetadata(RuntimeDynamicAccessMetadata.alwaysAllow(false), declaringType, name, type, modifiers));
     }
 
     @Override
@@ -627,7 +627,7 @@ public class RuntimeMetadataEncoderImpl implements RuntimeMetadataEncoder {
         encoders.classes.addObject(returnType.getJavaClass());
 
         addType(declaringType);
-        registerMethod(declaringType, analysisMethod, new MethodMetadata(RuntimeDynamicAccessMetadata.emptySet(false), declaringType, name, parameterTypes, modifiers, returnType));
+        registerMethod(declaringType, analysisMethod, new MethodMetadata(RuntimeDynamicAccessMetadata.alwaysAllow(false), declaringType, name, parameterTypes, modifiers, returnType));
     }
 
     @Override
@@ -638,7 +638,7 @@ public class RuntimeMetadataEncoderImpl implements RuntimeMetadataEncoder {
         /* Fill encoders with the necessary values. */
         encoders.memberNames.addObject(name);
 
-        registerField(declaringType, field, new FieldMetadata(RuntimeDynamicAccessMetadata.emptySet(false), declaringType, name, false));
+        registerField(declaringType, field, new FieldMetadata(RuntimeDynamicAccessMetadata.alwaysAllow(false), declaringType, name, false));
     }
 
     @Override
@@ -657,16 +657,16 @@ public class RuntimeMetadataEncoderImpl implements RuntimeMetadataEncoder {
         }
 
         if (isMethod) {
-            registerMethod(declaringType, executable, new MethodMetadata(RuntimeDynamicAccessMetadata.emptySet(false), declaringType, name, parameterTypeNames));
+            registerMethod(declaringType, executable, new MethodMetadata(RuntimeDynamicAccessMetadata.alwaysAllow(false), declaringType, name, parameterTypeNames));
         } else {
-            registerConstructor(declaringType, executable, new ConstructorMetadata(RuntimeDynamicAccessMetadata.emptySet(false), declaringType, parameterTypeNames));
+            registerConstructor(declaringType, executable, new ConstructorMetadata(RuntimeDynamicAccessMetadata.alwaysAllow(false), declaringType, parameterTypeNames));
         }
     }
 
     @Override
     public void addNegativeFieldQueryMetadata(HostedType declaringClass, String fieldName) {
         encoders.memberNames.addObject(fieldName);
-        registerField(declaringClass, fieldName, new FieldMetadata(RuntimeDynamicAccessMetadata.emptySet(false), declaringClass, fieldName, true));
+        registerField(declaringClass, fieldName, new FieldMetadata(RuntimeDynamicAccessMetadata.alwaysAllow(false), declaringClass, fieldName, true));
     }
 
     @Override
@@ -675,7 +675,7 @@ public class RuntimeMetadataEncoderImpl implements RuntimeMetadataEncoder {
         for (HostedType parameterType : parameterTypes) {
             encoders.classes.addObject(parameterType.getJavaClass());
         }
-        registerMethod(declaringClass, Pair.create(methodName, parameterTypes), new MethodMetadata(RuntimeDynamicAccessMetadata.emptySet(false), declaringClass, methodName, parameterTypes));
+        registerMethod(declaringClass, Pair.create(methodName, parameterTypes), new MethodMetadata(RuntimeDynamicAccessMetadata.alwaysAllow(false), declaringClass, methodName, parameterTypes));
     }
 
     @Override
@@ -683,7 +683,7 @@ public class RuntimeMetadataEncoderImpl implements RuntimeMetadataEncoder {
         for (HostedType parameterType : parameterTypes) {
             encoders.classes.addObject(parameterType.getJavaClass());
         }
-        registerConstructor(declaringClass, parameterTypes, new ConstructorMetadata(RuntimeDynamicAccessMetadata.emptySet(false), declaringClass, parameterTypes));
+        registerConstructor(declaringClass, parameterTypes, new ConstructorMetadata(RuntimeDynamicAccessMetadata.alwaysAllow(false), declaringClass, parameterTypes));
     }
 
     @Override
