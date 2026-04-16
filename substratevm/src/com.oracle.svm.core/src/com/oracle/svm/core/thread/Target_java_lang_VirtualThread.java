@@ -231,33 +231,6 @@ public final class Target_java_lang_VirtualThread {
     native Object carrierThreadAccessLock();
 
     @Alias
-    private native void setCarrierThread(Target_java_lang_Thread carrier);
-
-    /*
-     * GR-57064: substitution should not be needed (acquireInterruptLockMaybeSwitch should not have
-     * been necessary here).
-     */
-    @Substitute
-    void mount() {
-        Target_java_lang_Thread carrier = asTarget(Target_java_lang_Thread.currentCarrierThread());
-        setCarrierThread(carrier);
-
-        if (interrupted) {
-            carrier.setInterrupt();
-            // Checkstyle: allow Thread.isInterrupted: as in JDK
-        } else if (carrier.isInterrupted()) {
-            // Checkstyle: disallow Thread.isInterrupted
-            synchronized (asTarget(this).interruptLock) {
-                if (!interrupted) {
-                    carrier.clearInterrupt();
-                }
-            }
-        }
-
-        carrier.setCurrentThread(asThread(this));
-    }
-
-    @Alias
     native int state();
 
     @Substitute
