@@ -401,11 +401,6 @@ public abstract class PlatformThreads {
      */
     @Uninterruptible(reason = "Ensure consistency of nonDaemonThreads.")
     static void assignCurrent(Thread thread) {
-        assignCurrent(thread, 0L, null);
-    }
-
-    @Uninterruptible(reason = "Ensure consistency of nonDaemonThreads.")
-    static void assignCurrent(Thread thread, long parentThreadId, String parentVThreadName) {
         if (!VMThreads.wasStartedByCurrentIsolate(CurrentIsolate.getCurrentThread()) && thread.isDaemon()) {
             /* Correct the value of nonDaemonThreads, now that we have a Thread object. */
             decrementNonDaemonThreads();
@@ -417,18 +412,18 @@ public abstract class PlatformThreads {
          * in status NEW.
          */
         setThreadStatus(thread, ThreadStatus.RUNNABLE);
-        assignCurrent0(thread, parentThreadId, parentVThreadName);
+        assignCurrent0(thread);
     }
 
     @Uninterruptible(reason = "Ensure consistency of vthread and cached vthread id.")
-    private static void assignCurrent0(Thread thread, long parentThreadId, String parentVThreadName) {
+    private static void assignCurrent0(Thread thread) {
         VMError.guarantee(currentThread.get() == null, "overwriting existing java.lang.Thread");
         JavaThreads.currentVThreadId.set(JavaThreads.getThreadId(thread));
         currentThread.set(thread);
 
         assert toTarget(thread).isolateThread.isNull();
         toTarget(thread).isolateThread = CurrentIsolate.getCurrentThread();
-        ThreadListenerSupport.get().beforeThreadStart(CurrentIsolate.getCurrentThread(), thread, parentThreadId, parentVThreadName);
+        ThreadListenerSupport.get().beforeThreadStart(CurrentIsolate.getCurrentThread(), thread);
     }
 
     /**
@@ -445,7 +440,7 @@ public abstract class PlatformThreads {
     @Uninterruptible(reason = "Called during isolate creation.")
     public void assignMainThread() {
         /* The thread that creates the isolate is considered the "main" thread. */
-        assignCurrent0(mainThread, 0L, null);
+        assignCurrent0(mainThread);
 
         /*
          * Note that we can't call ThreadListenerSupport.beforeThreadRun() because the isolate is
@@ -700,44 +695,23 @@ public abstract class PlatformThreads {
 
         @RawField
         void setIsolate(Isolate vm);
-
-        @RawField
-        long getParentThreadId();
-
-        @RawField
-        void setParentThreadId(long parentThreadId);
-
-        @RawField
-        ObjectHandle getParentVThreadNameHandle();
-
-        @RawField
-        void setParentVThreadNameHandle(ObjectHandle parentVThreadNameHandle);
     }
 
-    protected <T extends ThreadStartData> T prepareStart(Thread thread, int startDataSize, long parentThreadId, String parentVThreadName) {
+    protected <T extends ThreadStartData> T prepareStart(Thread thread, int startDataSize) {
         T startData = Word.nullPointer();
         ObjectHandle threadHandle = Word.zero();
-        ObjectHandle parentVThreadNameHandle = Word.zero();
         try {
             startData = NativeMemory.malloc(startDataSize, NmtCategory.Threading);
             threadHandle = ObjectHandles.getGlobal().create(thread);
-            if (parentVThreadName != null) {
-                parentVThreadNameHandle = ObjectHandles.getGlobal().create(parentVThreadName);
-            }
 
             startData.setIsolate(CurrentIsolate.getIsolate());
             startData.setThreadHandle(threadHandle);
-            startData.setParentThreadId(parentThreadId);
-            startData.setParentVThreadNameHandle(parentVThreadNameHandle);
         } catch (Throwable e) {
             if (startData.isNonNull()) {
                 freeStartData(startData);
             }
             if (threadHandle.notEqual(Word.zero())) {
                 ObjectHandles.getGlobal().destroy(threadHandle);
-            }
-            if (parentVThreadNameHandle.notEqual(Word.zero())) {
-                ObjectHandles.getGlobal().destroy(parentVThreadNameHandle);
             }
             throw e;
         }
@@ -765,10 +739,6 @@ public abstract class PlatformThreads {
         assert numThreads >= 0;
 
         ObjectHandles.getGlobal().destroy(startData.getThreadHandle());
-        ObjectHandle parentVThreadNameHandle = startData.getParentVThreadNameHandle();
-        if (parentVThreadNameHandle.notEqual(Word.zero())) {
-            ObjectHandles.getGlobal().destroy(parentVThreadNameHandle);
-        }
         freeStartData(startData);
     }
 
@@ -803,8 +773,8 @@ public abstract class PlatformThreads {
         NativeMemory.free(startData);
     }
 
-    void startThread(Thread thread, long stackSize, long parentThreadId, String parentVThreadName) {
-        boolean started = doStartThread(thread, stackSize, parentThreadId, parentVThreadName);
+    void startThread(Thread thread, long stackSize) {
+        boolean started = doStartThread(thread, stackSize);
         if (!started) {
             throw new OutOfMemoryError("Unable to create native thread: possibly out of memory or process/resource limits reached");
         }
@@ -816,34 +786,25 @@ public abstract class PlatformThreads {
      *
      * @return {@code false} if the thread could not be started, {@code true} on success.
      */
-    protected abstract boolean doStartThread(Thread thread, long stackSize, long parentThreadId, String parentVThreadName);
+    protected abstract boolean doStartThread(Thread thread, long stackSize);
 
     @CEntryPoint(include = CEntryPoint.NotIncludedAutomatically.class, publishAs = CEntryPoint.Publish.NotPublished)
     @CEntryPointOptions(prologue = ThreadStartRoutinePrologue.class, epilogue = CEntryPointSetup.LeaveDetachThreadEpilogue.class)
     protected static WordBase threadStartRoutine(ThreadStartData data) {
         ObjectHandle threadHandle = data.getThreadHandle();
-        long parentThreadId = data.getParentThreadId();
-        ObjectHandle parentVThreadNameHandle = data.getParentVThreadNameHandle();
         freeStartData(data);
 
-        threadStartRoutine(threadHandle, parentThreadId, parentVThreadNameHandle);
+        threadStartRoutine(threadHandle);
         return Word.nullPointer();
     }
 
     @SuppressFBWarnings(value = "Ru", justification = "We really want to call Thread.run and not Thread.start because we are in the low-level thread start routine")
-    protected static void threadStartRoutine(ObjectHandle threadHandle, long parentThreadId, ObjectHandle parentVThreadNameHandle) {
+    protected static void threadStartRoutine(ObjectHandle threadHandle) {
         Thread thread = ObjectHandles.getGlobal().get(threadHandle);
-        String parentVThreadName = ObjectHandles.getGlobal().get(parentVThreadNameHandle);
 
         try {
-            try {
-                assignCurrent(thread, parentThreadId, parentVThreadName);
-            } finally {
-                ObjectHandles.getGlobal().destroy(threadHandle);
-                if (parentVThreadNameHandle.notEqual(Word.zero())) {
-                    ObjectHandles.getGlobal().destroy(parentVThreadNameHandle);
-                }
-            }
+            assignCurrent(thread);
+            ObjectHandles.getGlobal().destroy(threadHandle);
 
             singleton().unattachedStartedThreads.decrementAndGet();
             singleton().beforeThreadRun(thread);

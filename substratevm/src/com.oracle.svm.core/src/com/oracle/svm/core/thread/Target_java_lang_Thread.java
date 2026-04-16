@@ -74,6 +74,10 @@ public final class Target_java_lang_Thread {
 
     @Inject //
     @RecomputeFieldValue(kind = RecomputeFieldValue.Kind.Reset) //
+    public Thread jfrParentThread;
+
+    @Inject //
+    @RecomputeFieldValue(kind = RecomputeFieldValue.Kind.Reset) //
     public boolean jfrExcluded;
 
     @Inject //
@@ -270,11 +274,14 @@ public final class Target_java_lang_Thread {
     @Substitute
     @Platforms(InternalPlatform.NATIVE_ONLY.class)
     private void start0() {
-        Thread parentThread = Thread.currentThread();
-        long parentThreadId = JavaThreads.getThreadId(parentThread);
-        String parentVThreadName = JavaThreads.isVirtual(parentThread) ? parentThread.getName() : null;
+        jfrParentThread = Thread.currentThread();
         long stackSize = PlatformThreads.getRequestedStackSize(JavaThreads.fromTarget(this));
-        PlatformThreads.singleton().startThread(JavaThreads.fromTarget(this), stackSize, parentThreadId, parentVThreadName);
+        try {
+            PlatformThreads.singleton().startThread(JavaThreads.fromTarget(this), stackSize);
+        } catch (Throwable t) {
+            jfrParentThread = null;
+            throw t;
+        }
         /*
          * The threadStatus must be RUNNABLE before returning so the caller can safely use
          * Thread.join() on the launched thread, but the thread could also already have changed its

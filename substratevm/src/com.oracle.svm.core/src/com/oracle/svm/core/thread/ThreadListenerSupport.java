@@ -66,9 +66,9 @@ public class ThreadListenerSupport {
     }
 
     @Uninterruptible(reason = "Force that all listeners are uninterruptible.")
-    public void beforeThreadStart(IsolateThread isolateThread, Thread javaThread, long parentThreadId, String parentVThreadName) {
+    public void beforeThreadStart(IsolateThread isolateThread, Thread javaThread) {
         for (ThreadListener listener : listeners) {
-            listener.beforeThreadStart(isolateThread, javaThread, parentThreadId, parentVThreadName);
+            listener.beforeThreadStart(isolateThread, javaThread);
         }
     }
 

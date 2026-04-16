@@ -97,7 +97,7 @@ public final class PosixPlatformThreads extends PlatformThreads {
     }
 
     @Override
-    protected boolean doStartThread(Thread thread, long stackSize, long parentThreadId, String parentVThreadName) {
+    protected boolean doStartThread(Thread thread, long stackSize) {
         pthread_attr_t attributes = UnsafeStackValue.get(pthread_attr_t.class);
         if (Pthread.pthread_attr_init(attributes) != 0) {
             return false;
@@ -126,7 +126,7 @@ public final class PosixPlatformThreads extends PlatformThreads {
              */
             StackOverflowCheck.singleton().makeYellowZoneAvailable();
             try {
-                return doStartThread0(thread, attributes, parentThreadId, parentVThreadName);
+                return doStartThread0(thread, attributes);
             } finally {
                 StackOverflowCheck.singleton().protectYellowZone();
             }
@@ -137,8 +137,8 @@ public final class PosixPlatformThreads extends PlatformThreads {
 
     /** Starts a thread to the point so that it is executing. */
     @NeverInline("Workaround for GR-51925 - prevent that reads float from this method into the caller.")
-    private boolean doStartThread0(Thread thread, pthread_attr_t attributes, long parentThreadId, String parentVThreadName) {
-        ThreadStartData startData = prepareStart(thread, SizeOf.get(ThreadStartData.class), parentThreadId, parentVThreadName);
+    private boolean doStartThread0(Thread thread, pthread_attr_t attributes) {
+        ThreadStartData startData = prepareStart(thread, SizeOf.get(ThreadStartData.class));
         try {
             Pthread.pthread_tPointer newThread = UnsafeStackValue.get(Pthread.pthread_tPointer.class);
             if (Pthread.pthread_create(newThread, attributes, threadStartRoutine.getFunctionPointer(), startData) != 0) {

@@ -132,8 +132,14 @@ public class JfrThreadLocal implements ThreadListener {
 
     @Uninterruptible(reason = "Only uninterruptible code may be executed before the thread is fully started.")
     @Override
-    public void beforeThreadStart(IsolateThread isolateThread, Thread javaThread, long parentThreadId, String parentVThreadName) {
+    public void beforeThreadStart(IsolateThread isolateThread, Thread javaThread) {
+        Target_java_lang_Thread targetThread = SubstrateUtil.cast(javaThread, Target_java_lang_Thread.class);
+        Thread parentThread = targetThread.jfrParentThread;
+        targetThread.jfrParentThread = null;
+
         if (SubstrateJVM.get().isRecording()) {
+            long parentThreadId = parentThread == null ? 0L : JavaThreads.getThreadId(parentThread);
+            String parentVThreadName = parentThread != null && JavaThreads.isVirtual(parentThread) ? parentThread.getName() : null;
             SubstrateJVM.getThreadRepo().registerThread(javaThread);
             ThreadCPULoadEvent.initWallclockTime(isolateThread);
             ThreadStartEvent.emit(javaThread, parentThreadId, parentVThreadName);
