@@ -76,7 +76,6 @@ import com.oracle.svm.core.annotate.TargetElement;
 import com.oracle.svm.guest.staging.c.function.CEntryPointActions;
 import com.oracle.svm.guest.staging.c.function.CEntryPointErrors;
 import com.oracle.svm.guest.staging.c.function.CEntryPointOptions;
-import com.oracle.svm.core.c.struct.PinnedObjectField;
 import com.oracle.svm.guest.staging.c.function.CEntryPointSetup;
 import com.oracle.svm.core.heap.Heap;
 import com.oracle.svm.core.heap.ReferenceHandler;
@@ -708,32 +707,37 @@ public abstract class PlatformThreads {
         @RawField
         void setParentThreadId(long parentThreadId);
 
-        @PinnedObjectField
         @RawField
-        String getParentVThreadName();
+        ObjectHandle getParentVThreadNameHandle();
 
-        @PinnedObjectField
         @RawField
-        void setParentVThreadName(String parentVThreadName);
+        void setParentVThreadNameHandle(ObjectHandle parentVThreadNameHandle);
     }
 
     protected <T extends ThreadStartData> T prepareStart(Thread thread, int startDataSize, long parentThreadId, String parentVThreadName) {
         T startData = Word.nullPointer();
         ObjectHandle threadHandle = Word.zero();
+        ObjectHandle parentVThreadNameHandle = Word.zero();
         try {
             startData = NativeMemory.malloc(startDataSize, NmtCategory.Threading);
             threadHandle = ObjectHandles.getGlobal().create(thread);
+            if (parentVThreadName != null) {
+                parentVThreadNameHandle = ObjectHandles.getGlobal().create(parentVThreadName);
+            }
 
             startData.setIsolate(CurrentIsolate.getIsolate());
             startData.setThreadHandle(threadHandle);
             startData.setParentThreadId(parentThreadId);
-            startData.setParentVThreadName(parentVThreadName);
+            startData.setParentVThreadNameHandle(parentVThreadNameHandle);
         } catch (Throwable e) {
             if (startData.isNonNull()) {
                 freeStartData(startData);
             }
             if (threadHandle.notEqual(Word.zero())) {
                 ObjectHandles.getGlobal().destroy(threadHandle);
+            }
+            if (parentVThreadNameHandle.notEqual(Word.zero())) {
+                ObjectHandles.getGlobal().destroy(parentVThreadNameHandle);
             }
             throw e;
         }
@@ -760,6 +764,11 @@ public abstract class PlatformThreads {
         int numThreads = unattachedStartedThreads.decrementAndGet();
         assert numThreads >= 0;
 
+        ObjectHandles.getGlobal().destroy(startData.getThreadHandle());
+        ObjectHandle parentVThreadNameHandle = startData.getParentVThreadNameHandle();
+        if (parentVThreadNameHandle.notEqual(Word.zero())) {
+            ObjectHandles.getGlobal().destroy(parentVThreadNameHandle);
+        }
         freeStartData(startData);
     }
 
@@ -814,20 +823,27 @@ public abstract class PlatformThreads {
     protected static WordBase threadStartRoutine(ThreadStartData data) {
         ObjectHandle threadHandle = data.getThreadHandle();
         long parentThreadId = data.getParentThreadId();
-        String parentVThreadName = data.getParentVThreadName();
+        ObjectHandle parentVThreadNameHandle = data.getParentVThreadNameHandle();
         freeStartData(data);
 
-        threadStartRoutine(threadHandle, parentThreadId, parentVThreadName);
+        threadStartRoutine(threadHandle, parentThreadId, parentVThreadNameHandle);
         return Word.nullPointer();
     }
 
     @SuppressFBWarnings(value = "Ru", justification = "We really want to call Thread.run and not Thread.start because we are in the low-level thread start routine")
-    protected static void threadStartRoutine(ObjectHandle threadHandle, long parentThreadId, String parentVThreadName) {
+    protected static void threadStartRoutine(ObjectHandle threadHandle, long parentThreadId, ObjectHandle parentVThreadNameHandle) {
         Thread thread = ObjectHandles.getGlobal().get(threadHandle);
+        String parentVThreadName = ObjectHandles.getGlobal().get(parentVThreadNameHandle);
 
         try {
-            assignCurrent(thread, parentThreadId, parentVThreadName);
-            ObjectHandles.getGlobal().destroy(threadHandle);
+            try {
+                assignCurrent(thread, parentThreadId, parentVThreadName);
+            } finally {
+                ObjectHandles.getGlobal().destroy(threadHandle);
+                if (parentVThreadNameHandle.notEqual(Word.zero())) {
+                    ObjectHandles.getGlobal().destroy(parentVThreadNameHandle);
+                }
+            }
 
             singleton().unattachedStartedThreads.decrementAndGet();
             singleton().beforeThreadRun(thread);
