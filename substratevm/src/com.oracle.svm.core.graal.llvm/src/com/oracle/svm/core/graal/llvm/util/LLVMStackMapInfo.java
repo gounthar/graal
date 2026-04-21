@@ -106,6 +106,15 @@ public class LLVMStackMapInfo {
      */
     LLVMStackMapInfo(ByteBuffer buffer, LLVMSectionIteratorRef relocationsSectionIteratorRef) {
         LLVMRelocationIteratorRef relocationIteratorRef = LLVM.LLVMGetRelocations(relocationsSectionIteratorRef);
+        doParse(buffer, offset -> LLVMTargetSpecific.get().getInstructionOffset(buffer, offset, relocationsSectionIteratorRef, relocationIteratorRef));
+        LLVM.LLVMDisposeRelocationIterator(relocationIteratorRef);
+    }
+
+    LLVMStackMapInfo(ByteBuffer buffer, java.util.function.IntUnaryOperator instructionOffsetProvider) {
+        doParse(buffer, instructionOffsetProvider);
+    }
+
+    private void doParse(ByteBuffer buffer, java.util.function.IntUnaryOperator instructionOffsetProvider) {
         StackMap stackMap = new StackMap();
 
         int offset = 0;
@@ -164,7 +173,7 @@ public class LLVMStackMapInfo {
             record.patchpointID = buffer.getLong(offset);
             offset += Long.BYTES;
 
-            record.instructionOffset = LLVMTargetSpecific.get().getInstructionOffset(buffer, offset, relocationsSectionIteratorRef, relocationIteratorRef);
+            record.instructionOffset = instructionOffsetProvider.applyAsInt(offset);
             offset += Integer.BYTES;
 
             record.flags = buffer.getShort(offset);
@@ -225,7 +234,6 @@ public class LLVMStackMapInfo {
             patchpointsByID.computeIfAbsent(record.patchpointID, _ -> new HashSet<>()).add(record); // noEconomicSet(streaming)
         }
 
-        LLVM.LLVMDisposeRelocationIterator(relocationIteratorRef);
     }
 
     private Map<Long, Function> patchpointToFunction = new HashMap<>();

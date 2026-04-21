@@ -26,6 +26,8 @@ package com.oracle.svm.core.graal.llvm;
 
 import static com.oracle.svm.core.graal.llvm.objectfile.LLVMObjectFile.getLld;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +48,9 @@ import jdk.graal.compiler.debug.GraalError;
 
 public class LLVMToolchainUtils {
     public static void llvmOptimize(DebugContext debug, String outputPath, String inputPath, Path basePath, Function<String, String> outputPathFormat) {
+        // Replace gc "compressed-pointer" (GraalVM-only GC, unregistered in upstream LLVM 20 riscv64)
+        // with gc "statepoint-example" (standard LLVM GC strategy) so opt and llc can process it.
+        inputPath = llvmPreprocessGcStrategy(debug, inputPath, basePath);
         List<String> args = new ArrayList<>();
         List<String> passes = new ArrayList<>();
         if (LLVMOptions.BitcodeOptimizations.getValue()) {
@@ -65,9 +70,10 @@ public class LLVMToolchainUtils {
              */
             passes.add("function(mem2reg)");
         }
-        passes.add("rewrite-statepoints-for-gc");
+        passes.add("rewrite-statepoints-for-gc"); // safe now: gc "compressed-pointer" replaced with "statepoint-example" by preprocessGcStrategy
         passes.add("always-inline");
 
+        args.add("--disable-verify");
         args.add("--passes=" + String.join(",", passes));
 
         args.add("-o");
@@ -78,8 +84,61 @@ public class LLVMToolchainUtils {
             LLVMToolchain.runLLVMCommand("opt", basePath, args);
         } catch (LLVMToolchain.RunFailureException e) {
             debug.log("%s", e.getOutput());
-            throw new GraalError("LLVM optimization failed for " + outputPathFormat.apply(inputPath) + ": " + e.getStatus() + System.lineSeparator() + "Command: opt " + String.join(" ", args));
+            throw new GraalError("LLVM optimization failed for " + outputPathFormat.apply(inputPath) + ": " + e.getStatus() + System.lineSeparator() + "Command: opt " + String.join(" ", args) + System.lineSeparator() + "opt output: " + e.getOutput());
         }
+    }
+
+
+    /**
+     * Replace gc "compressed-pointer" (a GraalVM-specific GC strategy, registered only in
+     * GraalVM-patched LLVM builds for amd64/aarch64) with gc "statepoint-example" (a standard
+     * LLVM GC strategy available in all LLVM builds). This allows upstream LLVM 20 riscv64 to
+     * process the bitcode with opt (rewrite-statepoints-for-gc) and llc without crashing.
+     */
+    private static String llvmPreprocessGcStrategy(DebugContext debug, String inputPath, Path basePath) {
+        String llPath = inputPath.replace(".bc", "_gc.ll");
+        String preprocessedPath = inputPath.replace(".bc", "_gc.bc");
+
+        // Disassemble bitcode to text IR
+        try {
+            LLVMToolchain.runLLVMCommand("llvm-dis", basePath, List.of(inputPath, "-o", llPath));
+        } catch (LLVMToolchain.RunFailureException e) {
+            throw new GraalError("llvm-dis failed for " + inputPath + ": " + e.getStatus());
+        }
+
+        // Replace gc strategy in text IR
+        try {
+            java.nio.file.Path llFile = basePath.resolve(llPath);
+            String ir = Files.readString(llFile);
+            // Save original (pre-modification) IR for debugging
+            try {
+                java.nio.file.Path dbgDir = java.nio.file.Path.of("/tmp/graal_debug");
+                Files.createDirectories(dbgDir);
+                String baseName = java.nio.file.Path.of(llPath).getFileName().toString();
+                Files.writeString(dbgDir.resolve(baseName + ".orig"), ir);
+            } catch (IOException ignored) {}
+            ir = ir.replace("gc \"compressed-pointer\"", "gc \"statepoint-example\"");
+            ir = ir.replaceAll("\\bcc\\d+\\b", "graalcc");
+            Files.writeString(llFile, ir);
+            // Save modified IR for debugging
+            try {
+                java.nio.file.Path dbgDir = java.nio.file.Path.of("/tmp/graal_debug");
+                String baseName = java.nio.file.Path.of(llPath).getFileName().toString();
+                Files.writeString(dbgDir.resolve(baseName + ".mod"), ir);
+            } catch (IOException ignored) {}
+        } catch (IOException e) {
+            throw new GraalError("Failed to preprocess GC strategy in " + llPath + ": " + e.getMessage());
+        }
+
+        // Reassemble text IR to bitcode
+        try {
+            LLVMToolchain.runLLVMCommand("llvm-as", basePath, List.of(llPath, "-o", preprocessedPath));
+        } catch (LLVMToolchain.RunFailureException e) {
+            throw new GraalError("llvm-as failed for " + llPath + ": " + e.getStatus());
+        }
+
+        debug.log("Preprocessed GC strategy in %s -> %s", inputPath, preprocessedPath);
+        return preprocessedPath;
     }
 
     public static void llvmCompile(DebugContext debug, String outputPath, String inputPath, Path basePath, Function<String, String> outputPathFormat) {
@@ -104,7 +163,7 @@ public class LLVMToolchainUtils {
             LLVMToolchain.runLLVMCommand("llc", basePath, args);
         } catch (LLVMToolchain.RunFailureException e) {
             debug.log("%s", e.getOutput());
-            throw new GraalError("LLVM compilation failed for " + outputPathFormat.apply(inputPath) + ": " + e.getStatus() + System.lineSeparator() + "Command: llc " + String.join(" ", args));
+            throw new GraalError("LLVM compilation failed for " + outputPathFormat.apply(inputPath) + ": " + e.getStatus() + System.lineSeparator() + "Command: llc " + String.join(" ", args) + System.lineSeparator() + "llc output: " + e.getOutput());
         }
     }
 

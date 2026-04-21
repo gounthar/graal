@@ -1606,6 +1606,30 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
         }
 
         @Override
+        public Value emitMathUnsignedMin(LIRKind cmpKind, Value a, Value b) {
+            LLVMValueRef umin = builder.buildUMin(getVal(a), getVal(b));
+            return new LLVMVariable(umin);
+        }
+
+        @Override
+        public Value emitMathUnsignedMax(LIRKind cmpKind, Value a, Value b) {
+            LLVMValueRef umax = builder.buildUMax(getVal(a), getVal(b));
+            return new LLVMVariable(umax);
+        }
+
+        @Override
+        public Value emitMathMin(LIRKind cmpKind, Value a, Value b) {
+            LLVMValueRef smin = builder.buildSMin(getVal(a), getVal(b));
+            return new LLVMVariable(smin);
+        }
+
+        @Override
+        public Value emitMathMax(LIRKind cmpKind, Value a, Value b) {
+            LLVMValueRef smax = builder.buildSMax(getVal(a), getVal(b));
+            return new LLVMVariable(smax);
+        }
+
+        @Override
         public Variable emitReverseBits(Value operand) {
             LLVMValueRef reversed = builder.buildBitReverse(getVal(operand));
             return new LLVMVariable(reversed);

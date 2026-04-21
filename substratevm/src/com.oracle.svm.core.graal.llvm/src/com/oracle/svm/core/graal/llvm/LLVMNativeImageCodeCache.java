@@ -181,19 +181,34 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
         stackMapDumper.startDumpingFunctions();
 
         executor.forEach(numBatches, batchId -> _ -> {
+            System.err.println("DEBUG: opt batch " + batchId + " start");
             llvmOptimize(debug, getBatchOptimizedFilename(batchId), getBatchBitcodeFilename(batchId), basePath, this::getFunctionName);
+            System.err.println("DEBUG: opt batch " + batchId + " done");
             llvmCompile(debug, getBatchCompiledFilename(batchId), getBatchOptimizedFilename(batchId), basePath, this::getFunctionName);
-
+            System.err.println("DEBUG: llc batch " + batchId + " done → parseStackMap");
+            try {
+                java.nio.file.Path src = getBatchCompiledPath(batchId);
+                java.nio.file.Path dst = java.nio.file.Path.of("/tmp/graal_debug/batch" + batchId + ".o");
+                java.nio.file.Files.createDirectories(dst.getParent());
+                java.nio.file.Files.copy(src, dst, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                System.err.println("DEBUG: saved " + src + " → " + dst);
+            } catch (java.io.IOException e) {
+                System.err.println("DEBUG: save failed: " + e.getMessage());
+            }
             LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(getBatchCompiledPath(batchId));
+            System.err.println("DEBUG: parseStackMap batch " + batchId + " done → readStackMap");
             IntStream.range(getBatchStart(batchId), getBatchEnd(batchId)).forEach(id -> objectFileReader.readStackMap(stackMap, compilationResultFor(methodIndex[id]), methodIndex[id], id));
+            System.err.println("DEBUG: batch " + batchId + " COMPLETE");
         });
     }
 
     private void linkCompiledBatches(DebugContext debug, BatchExecutor executor, int numBatches) {
         List<String> compiledBatches = IntStream.range(0, numBatches).mapToObj(this::getBatchCompiledFilename).collect(Collectors.toList());
+        System.err.println("DEBUG: nativeLink start (" + compiledBatches.size() + " batches)");
         nativeLink(debug, getLinkedFilename(), compiledBatches, basePath, this::getFunctionName);
-
+        System.err.println("DEBUG: nativeLink done → parseCode");
         LLVMTextSectionInfo textSectionInfo = objectFileReader.parseCode(getLinkedPath());
+        System.err.println("DEBUG: parseCode done");
 
         executor.forEach(getOrderedCompilations(), pair -> _ -> {
             HostedMethod method = pair.getLeft();

@@ -50,6 +50,7 @@ import com.oracle.svm.hosted.meta.HostedMethod;
 import com.oracle.svm.shadowed.org.bytedeco.javacpp.BytePointer;
 import com.oracle.svm.shadowed.org.bytedeco.javacpp.Pointer;
 import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMMemoryBufferRef;
+import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMBinaryRef;
 import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMObjectFileRef;
 import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMSectionIteratorRef;
 import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMSymbolIteratorRef;
@@ -65,6 +66,12 @@ import jdk.vm.ci.meta.ResolvedJavaMethod;
 public class LLVMObjectFileReader {
     private static final String SYMBOL_PREFIX = (ObjectFile.getNativeFormat() == ObjectFile.Format.MACH_O) ? "_" : "";
     private final StackMapDumper stackMapDumper;
+
+    static {
+        LLVM.LLVMInitializeAllTargetInfos();
+        LLVM.LLVMInitializeAllTargets();
+        LLVM.LLVMInitializeAllTargetMCs();
+    }
 
     public LLVMObjectFileReader(StackMapDumper stackMapDumper) {
         this.stackMapDumper = stackMapDumper;
@@ -95,12 +102,17 @@ public class LLVMObjectFileReader {
         }
 
         LLVMMemoryBufferRef buffer = LLVM.LLVMCreateMemoryBufferWithMemoryRangeCopy(new BytePointer(bytes), bytes.length, new BytePointer(""));
-        LLVMObjectFileRef objectFile = LLVM.LLVMCreateObjectFile(buffer);
+        BytePointer errorMessage = new BytePointer((Pointer) null);
+        LLVMBinaryRef binary = LLVM.LLVMCreateBinary(buffer, (com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMContextRef) null, errorMessage);
+        if (binary == null || binary.isNull()) {
+            String errMsg = (errorMessage != null && !errorMessage.isNull()) ? errorMessage.getString() : "unknown error";
+            throw new GraalError("LLVMCreateBinary failed for " + path + ": " + errMsg);
+        }
 
         LLVMSectionIteratorRef sectionIterator;
-        LLVMSectionIteratorRef relocationsSectionIterator = LLVM.LLVMGetSections(objectFile);
+        LLVMSectionIteratorRef relocationsSectionIterator = LLVM.LLVMObjectFileCopySectionIterator(binary);
         LLVMSectionInfo<SectionInfo, SymbolInfo> result = new LLVMSectionInfo<>();
-        for (sectionIterator = LLVM.LLVMGetSections(objectFile); LLVM.LLVMIsSectionIteratorAtEnd(objectFile, sectionIterator) == FALSE; LLVM.LLVMMoveToNextSection(sectionIterator)) {
+        for (sectionIterator = LLVM.LLVMObjectFileCopySectionIterator(binary); LLVM.LLVMObjectFileIsSectionIteratorAtEnd(binary, sectionIterator) == FALSE; LLVM.LLVMMoveToNextSection(sectionIterator)) {
             BytePointer sectionNamePointer = LLVM.LLVMGetSectionName(sectionIterator);
             String currentSectionName = (sectionNamePointer != null) ? sectionNamePointer.getString() : "";
             if (currentSectionName.startsWith(sectionName.getFormatDependentName(ObjectFile.getNativeFormat()))) {
@@ -108,7 +120,7 @@ public class LLVMObjectFileReader {
 
                 if (symbolReader != null) {
                     LLVMSymbolIteratorRef symbolIterator;
-                    for (symbolIterator = LLVM.LLVMGetSymbols(objectFile); LLVM.LLVMIsSymbolIteratorAtEnd(objectFile, symbolIterator) == FALSE; LLVM.LLVMMoveToNextSymbol(symbolIterator)) {
+                    for (symbolIterator = LLVM.LLVMObjectFileCopySymbolIterator(binary); LLVM.LLVMObjectFileIsSymbolIteratorAtEnd(binary, symbolIterator) == FALSE; LLVM.LLVMMoveToNextSymbol(symbolIterator)) {
                         if (LLVM.LLVMGetSectionContainsSymbol(sectionIterator, symbolIterator) == TRUE) {
                             result.symbolInfo.add(symbolReader.apply(symbolIterator, sectionIterator));
                         }
@@ -122,7 +134,7 @@ public class LLVMObjectFileReader {
 
         LLVM.LLVMDisposeSectionIterator(sectionIterator);
         LLVM.LLVMDisposeSectionIterator(relocationsSectionIterator);
-        LLVM.LLVMDisposeObjectFile(objectFile);
+        LLVM.LLVMDisposeBinary(binary);
 
         return result;
     }
@@ -154,8 +166,110 @@ public class LLVMObjectFileReader {
     }
 
     public LLVMStackMapInfo parseStackMap(Path objectFile) {
-        LLVMSectionInfo<LLVMStackMapInfo, Object> sectionInfo = readSection(objectFile, SectionName.LLVM_STACKMAPS, this::readStackMapSection, null);
-        return sectionInfo.sectionInfo;
+        // Pure-Java ELF64 path: avoids libLLVM-13.so which crashes due to
+        // C++ ODR conflicts with libLLVM.so.20.1 loaded in the same JVM.
+        return parseStackMapJava(objectFile);
+    }
+
+    private static LLVMStackMapInfo parseStackMapJava(Path objectFile) {
+        try {
+            byte[] elfBytes = java.nio.file.Files.readAllBytes(objectFile);
+            java.nio.ByteBuffer elf = java.nio.ByteBuffer.wrap(elfBytes)
+                    .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+
+            // ELF64 header fields
+            long shoff = elf.getLong(40);          // section header table offset
+            int shentsize = elf.getShort(58) & 0xFFFF; // section header entry size (=64)
+            int shnum = elf.getShort(60) & 0xFFFF;     // number of section headers
+            int shstrndx = elf.getShort(62) & 0xFFFF;  // .shstrtab section index
+
+            // Offset of the section-name string table
+            long shstrOff = elf.getLong((int) (shoff + (long) shstrndx * shentsize + 24));
+
+            // Locate the three sections we need
+            int stackmapIdx = -1, relaIdx = -1, symtabIdx = -1;
+            for (int i = 0; i < shnum; i++) {
+                int nameOff = elf.getInt((int) (shoff + (long) i * shentsize));
+                String name = elfString(elfBytes, (int) (shstrOff + nameOff));
+                if (".llvm_stackmaps".equals(name))      stackmapIdx = i;
+                else if (".rela.llvm_stackmaps".equals(name)) relaIdx  = i;
+                else if (".symtab".equals(name))          symtabIdx  = i;
+            }
+            if (stackmapIdx < 0) {
+                throw new GraalError(".llvm_stackmaps section not found in: " + objectFile);
+            }
+
+            // Build the stackmap ByteBuffer (backed by the same array, zero-copy)
+            long smOff  = elf.getLong((int) (shoff + (long) stackmapIdx * shentsize + 24));
+            int  smSize = (int) elf.getLong((int) (shoff + (long) stackmapIdx * shentsize + 32));
+            java.nio.ByteBuffer stackmapBuf = java.nio.ByteBuffer
+                    .wrap(elfBytes, (int) smOff, smSize).slice()
+                    .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+
+            // Build instruction-offset map from R_RISCV_ADD32 / R_RISCV_SUB32 pairs
+            java.util.HashMap<Long, Integer> computed = new java.util.HashMap<>();
+            if (relaIdx >= 0 && symtabIdx >= 0) {
+                // Load symbol values (st_value at byte 8 within each 24-byte Elf64_Sym)
+                long symOff  = elf.getLong((int) (shoff + (long) symtabIdx * shentsize + 24));
+                long symSize = elf.getLong((int) (shoff + (long) symtabIdx * shentsize + 32));
+                int symCount = (int) (symSize / 24);
+                long[] symVals = new long[symCount];
+                for (int i = 0; i < symCount; i++) {
+                    symVals[i] = elf.getLong((int) (symOff + (long) i * 24 + 8));
+                }
+
+                // Iterate Elf64_Rela entries (24 bytes each: r_offset, r_info, r_addend)
+                long relaSectionOff = elf.getLong((int) (shoff + (long) relaIdx * shentsize + 24));
+                long relaSize       = elf.getLong((int) (shoff + (long) relaIdx * shentsize + 32));
+                int  relaCount      = (int) (relaSize / 24);
+
+                // RISC-V relocation type constants
+                final int R_RISCV_ADD32 = 35; // 0x23
+                final int R_RISCV_SUB32 = 39; // 0x27
+
+                for (int i = 0; i < relaCount - 1; i++) {
+                    long b1     = relaSectionOff + (long) i * 24;
+                    long roff1  = elf.getLong((int) b1);
+                    long rinfo1 = elf.getLong((int) (b1 + 8));
+                    int  type1  = (int) (rinfo1 & 0xFFFFFFFFL);
+                    int  sym1   = (int) (rinfo1 >>> 32);
+
+                    if (type1 == R_RISCV_ADD32) {
+                        long b2     = relaSectionOff + (long) (i + 1) * 24;
+                        long roff2  = elf.getLong((int) b2);
+                        long rinfo2 = elf.getLong((int) (b2 + 8));
+                        int  type2  = (int) (rinfo2 & 0xFFFFFFFFL);
+                        int  sym2   = (int) (rinfo2 >>> 32);
+
+                        if (type2 == R_RISCV_SUB32 && roff2 == roff1) {
+                            // instruction_offset = ADD32.sym.st_value - SUB32.sym.st_value
+                            computed.put(roff1, (int) (symVals[sym1] - symVals[sym2]));
+                            i++; // consumed the SUB32 entry
+                        }
+                    }
+                }
+            }
+
+            // Provider: map lookup first; fall back to reading the field from the buffer
+            // (correct for non-RISC-V targets and zero-offset records with no relocation)
+            final java.util.HashMap<Long, Integer> finalMap = computed;
+            final java.nio.ByteBuffer finalBuf = stackmapBuf;
+            java.util.function.IntUnaryOperator provider =
+                    offset -> finalMap.getOrDefault((long) offset, finalBuf.getInt(offset));
+
+            return new LLVMStackMapInfo(stackmapBuf, provider);
+
+        } catch (java.io.IOException e) {
+            throw new GraalError("Failed to read ELF file " + objectFile + ": " + e.getMessage());
+        }
+    }
+
+    private static String elfString(byte[] bytes, int start) {
+        int end = start;
+        while (end < bytes.length && bytes[end] != 0) {
+            end++;
+        }
+        return new String(bytes, start, end - start, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private LLVMStackMapInfo readStackMapSection(LLVMSectionIteratorRef sectionIterator, LLVMSectionIteratorRef relocationsSectionIterator) {

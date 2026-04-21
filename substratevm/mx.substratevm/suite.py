@@ -2077,6 +2077,7 @@ suite = {
                             org.graalvm.nativeimage.guest,
                             org.graalvm.nativeimage.guest.staging,
                             org.graalvm.nativeimage.junitsupport,
+                            org.graalvm.nativeimage.llvm,
                             org.graalvm.nativeimage.pointsto,
                             org.graalvm.truffle.runtime.svm""",
                 ],
@@ -2113,7 +2114,8 @@ suite = {
                             org.graalvm.nativeimage.agent.jvmtibase,
                             org.graalvm.nativeimage.enterprise.testrunner,
                             com.oracle.truffle.enterprise.svm,
-                            com.oracle.svm.svm_enterprise""",
+                            com.oracle.svm.svm_enterprise,
+                                org.graalvm.nativeimage.llvm""",
                 ],
                 "opens" : [],
                 "requires": [

@@ -1108,6 +1108,22 @@ public class LLVMIRBuilder implements AutoCloseable {
         return buildIntrinsicOp("maximum", a, b);
     }
 
+    public LLVMValueRef buildUMin(LLVMValueRef a, LLVMValueRef b) {
+        return buildIntrinsicOp("umin", a, b);
+    }
+
+    public LLVMValueRef buildUMax(LLVMValueRef a, LLVMValueRef b) {
+        return buildIntrinsicOp("umax", a, b);
+    }
+
+    public LLVMValueRef buildSMin(LLVMValueRef a, LLVMValueRef b) {
+        return buildIntrinsicOp("smin", a, b);
+    }
+
+    public LLVMValueRef buildSMax(LLVMValueRef a, LLVMValueRef b) {
+        return buildIntrinsicOp("smax", a, b);
+    }
+
     public LLVMValueRef buildCopysign(LLVMValueRef a, LLVMValueRef b) {
         return buildIntrinsicOp("copysign", a, b);
     }

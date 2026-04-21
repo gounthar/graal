@@ -35,14 +35,15 @@ public interface SymbolTable extends Iterable<Symbol> {
     Symbol newUndefinedEntry(String name, boolean isCode);
 
     /**
-     * Simple sanity check: don't let a symbol replace a symbol, to be used with
-     * {@link java.util.Map#compute}.
+     * Simple sanity check: don't let a defined symbol replace another defined symbol, to be used
+     * with {@link java.util.Map#compute}.
      *
-     * Previously we allowed the replacement of undefined symbols; however, this is unnecessary and
-     * then requires the linking resolution to be performed at run time.
+     * Replacing an UNDEFINED entry with a DEFINED entry is permitted: the LLVM backend declares
+     * forward references (e.g. __svm_heap_begin) as undefined in patchMethods() and then defines
+     * them in NativeImage.build(). Replacing a DEFINED entry is always an error.
      */
     static <T extends Symbol> T tryReplace(T oldEntry, T newEntry) {
-        if (oldEntry != null) {
+        if (oldEntry != null && oldEntry.isDefined()) {
             throw new RuntimeException(String.format("Illegal replacement of symbol table entry. Name: '%s'", newEntry.getName()));
         }
         return newEntry;

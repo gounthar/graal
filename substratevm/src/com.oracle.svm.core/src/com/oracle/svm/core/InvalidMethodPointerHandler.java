@@ -75,6 +75,7 @@ public final class InvalidMethodPointerHandler {
     private static void invalidCodeAddressHandler() {
         Pointer callerSP = KnownIntrinsics.readCallerStackPointer();
         CodePointer callerIP = KnownIntrinsics.readReturnAddress();
+        Log.log().string("DIAG: invalidCodeAddressHandler callerIP=").hex(callerIP.rawValue()).newline().flush();
         failFatally(callerSP, callerIP, INVALID_CODE_ADDRESS_MSG);
     }
 
