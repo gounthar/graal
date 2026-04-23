@@ -27,6 +27,8 @@ package com.oracle.svm.core.graal.llvm;
 import java.nio.file.Path;
 import java.util.Map;
 
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.PointerPointer;
+
 import org.graalvm.nativeimage.ImageSingletons;
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platforms;
@@ -126,6 +128,15 @@ public class LLVMFeature implements InternalFeature {
 
     @Override
     public void beforeAnalysis(BeforeAnalysisAccess access) {
+        /*
+         * Force Pointer$DeallocatorThread class initialization here, on the main thread, before
+         * CompileQueue's ForkJoin workers start. On slow hardware (e.g. riscv64), multiple workers
+         * can race to initialize this class concurrently via PointerPointer.<init> inside
+         * LLVMIRBuilder.functionType(), deadlocking on the class-initialization lock.
+         * Completing initialization now makes subsequent calls in ForkJoin workers lock-free.
+         */
+        try (PointerPointer<?> warmup = new PointerPointer<>(0)) { /* discard */ }
+
         FeatureImpl.BeforeAnalysisAccessImpl accessImpl = (FeatureImpl.BeforeAnalysisAccessImpl) access;
         accessImpl.registerAsRoot((AnalysisMethod) LLVMExceptionUnwind.getRetrieveExceptionMethod(accessImpl.getMetaAccess()), true, "LLVM exception unwind, registered in " + LLVMFeature.class);
     }
