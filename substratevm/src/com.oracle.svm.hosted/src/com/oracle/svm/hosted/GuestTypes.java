@@ -377,6 +377,13 @@ public final class GuestTypes {
      * the {@linkplain #platform target platform}.
      */
     private void registerFieldsAndMethods(ResolvedJavaType applicationType) {
+        /* com.oracle.svm.shadowed.* classes are builder-internal JavaCPP bindings.
+         * They may have thousands of generated native methods but are never part of
+         * the guest application -- registering them is unnecessary and very slow on
+         * hardware with slow JVMCI introspection (e.g. riscv64). */
+        if (applicationType.toJavaName().startsWith("com.oracle.svm.shadowed.")) {
+            return;
+        }
         List<ResolvedJavaMethod> declaredMethods = null;
         try {
             declaredMethods = applicationType.getAllMethods(true);

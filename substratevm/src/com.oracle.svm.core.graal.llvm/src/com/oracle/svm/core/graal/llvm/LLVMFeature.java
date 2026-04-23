@@ -28,6 +28,8 @@ import java.nio.file.Path;
 import java.util.Map;
 
 import com.oracle.svm.shadowed.org.bytedeco.javacpp.PointerPointer;
+import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMContextRef;
+import com.oracle.svm.shadowed.org.bytedeco.llvm.global.LLVM;
 
 import org.graalvm.nativeimage.ImageSingletons;
 import org.graalvm.nativeimage.Platform;
@@ -128,17 +130,23 @@ public class LLVMFeature implements InternalFeature {
 
     @Override
     public void beforeAnalysis(BeforeAnalysisAccess access) {
-        /*
-         * Force Pointer$DeallocatorThread class initialization here, on the main thread, before
-         * CompileQueue's ForkJoin workers start. On slow hardware (e.g. riscv64), multiple workers
-         * can race to initialize this class concurrently via PointerPointer.<init> inside
-         * LLVMIRBuilder.functionType(), deadlocking on the class-initialization lock.
-         * Completing initialization now makes subsequent calls in ForkJoin workers lock-free.
-         */
-        try (PointerPointer<?> warmup = new PointerPointer<>(0)) { /* discard */ }
-
         FeatureImpl.BeforeAnalysisAccessImpl accessImpl = (FeatureImpl.BeforeAnalysisAccessImpl) access;
         accessImpl.registerAsRoot((AnalysisMethod) LLVMExceptionUnwind.getRetrieveExceptionMethod(accessImpl.getMetaAccess()), true, "LLVM exception unwind, registered in " + LLVMFeature.class);
+    }
+
+    @Override
+    public void beforeCompilation(BeforeCompilationAccess access) {
+        /*
+         * Force-load the LLVM native library and pre-initialize Pointer$DeallocatorThread on the
+         * main thread, before ForkJoin compilation workers start. On slow hardware (e.g. riscv64),
+         * multiple workers race to initialize these concurrently via PointerPointer.<init> inside
+         * LLVMIRBuilder.functionType(), deadlocking on the class-initialization lock.
+         * LLVMContextCreate() triggers Loader.load() for both the javacpp and llvm native libs,
+         * completing all class initializations before any worker thread accesses them.
+         */
+        LLVMContextRef ctx = LLVM.LLVMContextCreate();
+        LLVM.LLVMContextDispose(ctx);
+        try (PointerPointer<?> warmup = new PointerPointer<>(0)) { /* discard */ }
     }
 
     @Override
