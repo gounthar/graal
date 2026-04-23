@@ -140,13 +140,14 @@ public class LLVMFeature implements InternalFeature {
          * Force-load the LLVM native library and pre-initialize Pointer$DeallocatorThread on the
          * main thread, before ForkJoin compilation workers start. On slow hardware (e.g. riscv64),
          * multiple workers race to initialize these concurrently via PointerPointer.<init> inside
-         * LLVMIRBuilder.functionType(), deadlocking on the class-initialization lock.
-         * LLVMContextCreate() triggers Loader.load() for both the javacpp and llvm native libs,
-         * completing all class initializations before any worker thread accesses them.
+         * LLVMIRBuilder.functionType(), deadlocking on the synchronized(DeallocatorThread.class) block.
+         * LLVMContextCreate() loads the javacpp + llvm native libs. PointerPointer(1) triggers a real
+         * native allocation so Pointer.init() -> deallocator() -> synchronized(DeallocatorThread.class)
+         * runs on the main thread; subsequent worker calls find the path warm and lock-contention-free.
          */
         LLVMContextRef ctx = LLVM.LLVMContextCreate();
         LLVM.LLVMContextDispose(ctx);
-        try (PointerPointer<?> warmup = new PointerPointer<>(0)) { /* discard */ }
+        try (PointerPointer<?> warmup = new PointerPointer<>(1)) { /* discard */ }
     }
 
     @Override
