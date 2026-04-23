@@ -222,6 +222,10 @@ public final class NativeImageHeapWriter {
     private final boolean useHeapBase = NativeImageHeap.useHeapBase();
     private final CompressEncoding compressEncoding = ImageSingletons.lookup(CompressEncoding.class);
 
+    long getHeapConstantOffset(JavaConstant constant) {
+        return heap.getConstantInfo(constant).getOffset();
+    }
+
     void writeReference(RelocatableBuffer buffer, int index, JavaConstant target, Object reason) {
         assert !(heap.hMetaAccess.isInstanceOf(target, WordBase.class)) : "word values are not references";
         mustBeReferenceAligned(index);

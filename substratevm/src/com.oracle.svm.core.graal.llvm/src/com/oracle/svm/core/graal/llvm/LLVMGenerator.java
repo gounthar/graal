@@ -37,6 +37,7 @@ import static jdk.graal.compiler.debug.GraalError.shouldNotReachHere;
 import static jdk.graal.compiler.debug.GraalError.shouldNotReachHereUnexpectedValue;
 import static jdk.graal.compiler.debug.GraalError.unimplemented;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -77,8 +78,10 @@ import com.oracle.svm.core.graal.llvm.util.LLVMUtils.LLVMStackSlot;
 import com.oracle.svm.core.graal.llvm.util.LLVMUtils.LLVMValueWrapper;
 import com.oracle.svm.core.graal.llvm.util.LLVMUtils.LLVMVariable;
 import com.oracle.svm.core.graal.meta.SubstrateRegisterConfig;
+import com.oracle.svm.core.graal.nodes.TLABObjectHeaderConstant;
 import com.oracle.svm.core.graal.nodes.WriteCurrentVMThreadNode;
 import com.oracle.svm.core.graal.nodes.WriteHeapBaseNode;
+import com.oracle.svm.core.heap.Heap;
 import com.oracle.svm.core.heap.ReferenceAccess;
 import com.oracle.svm.core.snippets.SnippetRuntime;
 import com.oracle.svm.hosted.code.CEntryPointData;
@@ -477,9 +480,38 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
 
     @Override
     public Value emitJavaConstant(JavaConstant constant) {
+        if (constant instanceof TLABObjectHeaderConstant ohc) {
+            LLVMValueRef global = getLLVMPlaceholderForTLABHeader(ohc);
+            LLVMValueRef value = builder.buildLoad(global, getLLVMType(constant.getJavaKind(), false));
+            return new LLVMConstant(value, constant);
+        }
         assert constant.getJavaKind() != JavaKind.Object;
         LLVMValueRef value = emitLLVMConstant(getLLVMType(constant.getJavaKind(), false), constant);
         return new LLVMConstant(value, constant);
+    }
+
+    private LLVMValueRef getLLVMPlaceholderForTLABHeader(TLABObjectHeaderConstant constant) {
+        String symbolName = constants.get(constant);
+        if (symbolName == null) {
+            symbolName = "tlab_header_" + functionName + "#" + nextConstantId++;
+            constants.put(constant, symbolName);
+            int size = constant.getJavaKind() == JavaKind.Long ? Long.BYTES : Integer.BYTES;
+            DataSection.Data data = new DataSection.Data(size, size) {
+                @Override
+                protected void emit(ByteBuffer buffer, DataSection.Patches patches) {
+                    int position = buffer.position();
+                    if (size == Integer.BYTES) {
+                        buffer.putInt(0);
+                    } else {
+                        buffer.putLong(0L);
+                    }
+                    patches.registerPatch(position, constant);
+                }
+            };
+            DataSectionReference reference = compilationResult.getDataSection().insertData(data);
+            compilationResult.recordDataPatchWithNote(0, reference, symbolName);
+        }
+        return builder.getExternalIntegerGlobal(symbolName, getLLVMType(constant.getJavaKind(), false));
     }
 
     LLVMValueRef emitLLVMConstant(LLVMTypeRef type, JavaConstant constant) {

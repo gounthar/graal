@@ -776,7 +776,20 @@ public abstract class NativeImageCodeCache {
 
     public void writeConstants(NativeImageHeapWriter writer, RelocatableBuffer buffer) {
         ByteBuffer bb = buffer.getByteBuffer();
-        dataSection.buildDataSection(bb, (position, constant) -> writer.writeReference(buffer, position, (JavaConstant) constant, "VMConstant: " + constant));
+        dataSection.buildDataSection(bb, (position, constant) -> {
+            JavaConstant jc = (JavaConstant) constant;
+            if (jc instanceof TLABObjectHeaderConstant hpc) {
+                long hubOffset = writer.getHeapConstantOffset(hpc.hub());
+                long headerValue = com.oracle.svm.core.heap.Heap.getHeap().getObjectHeader().encodeAsTLABObjectHeader(hubOffset);
+                if (hpc.getJavaKind() == jdk.vm.ci.meta.JavaKind.Long) {
+                    bb.putLong(position, headerValue);
+                } else {
+                    bb.putInt(position, jdk.graal.compiler.core.common.NumUtil.safeToUInt(headerValue));
+                }
+            } else {
+                writer.writeReference(buffer, position, jc, "VMConstant: " + constant);
+            }
+        });
     }
 
     public abstract NativeTextSectionImpl getTextSectionImpl(RelocatableBuffer buffer, ObjectFile objectFile, NativeImageCodeCache codeCache);

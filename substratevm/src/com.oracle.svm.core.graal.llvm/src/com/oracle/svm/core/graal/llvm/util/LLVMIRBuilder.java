@@ -667,6 +667,15 @@ public class LLVMIRBuilder implements AutoCloseable {
         return val;
     }
 
+    public LLVMValueRef getExternalIntegerGlobal(String name, LLVMTypeRef type) {
+        LLVMValueRef val = getGlobal(name);
+        if (val == null) {
+            val = LLVM.LLVMAddGlobal(module, type, name);
+            setLinkage(val, LinkageType.External);
+        }
+        return val;
+    }
+
     public LLVMValueRef getUniqueGlobal(String name, LLVMTypeRef type, boolean zeroInitialized) {
         LLVMValueRef global = getGlobal(name);
         if (global == null) {
