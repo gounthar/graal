@@ -438,15 +438,17 @@ class LLVMRISCV64TargetSpecificFeature implements InternalFeature {
             }
 
             /*
-             * All data push on the stack is in the call frame
+             * LLVM's RISC-V StackMap records stackSize excluding the RA+FP frame record
+             * (2 x 8 = 16 bytes). The stack walker must add these 16 bytes to locate RA.
              */
             @Override
             public int getCallFrameSeparation() {
-                return 0;
+                return 2 * SubstrateTarget.getWordSize();
             }
 
             /*
-             * The frame pointer is stored below the saved value for the return register.
+             * The frame pointer (s0) points to the caller SP (addi s0,sp,N sets s0=caller SP).
+             * So FP = newSp + 0.
              */
             @Override
             public int getFramePointerOffset() {
