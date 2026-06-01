@@ -1916,6 +1916,7 @@ suite = {
                             org.graalvm.nativeimage.enterprise.testrunner,
                             com.oracle.svm.svm_enterprise,
                             com.oracle.svm.svm_enterprise.llvm,
+                            org.graalvm.nativeimage.llvm,
                             com.oracle.svm_enterprise.ml_dataset,
                             org.graalvm.extraimage.builder,
                             org.graalvm.extraimage.librarysupport,
@@ -2025,6 +2026,7 @@ suite = {
                             com.oracle.svm.jdwp.server,
                             com.oracle.svm.svm_enterprise,
                             com.oracle.svm.svm_enterprise.llvm,
+                            org.graalvm.nativeimage.llvm,
                             com.oracle.svm_enterprise.ml_dataset,
                             com.oracle.truffle.enterprise.svm,
                             org.graalvm.extraimage.builder,
@@ -2070,6 +2072,7 @@ suite = {
                 "name" : "org.graalvm.nativeimage.guest.staging",
                 "exports" : [
                     """* to org.graalvm.nativeimage.builder,
+                            org.graalvm.nativeimage.llvm,
                             org.graalvm.extraimage.builder,
                             org.graalvm.nativeimage.guest,
                             org.graalvm.nativeimage.foreign,

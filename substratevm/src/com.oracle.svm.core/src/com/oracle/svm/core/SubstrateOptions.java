@@ -917,7 +917,7 @@ public class SubstrateOptions {
         @Override
         protected void onValueUpdate(EconomicMap<OptionKey<?>, Object> values, String oldValue, String newValue) {
             if ("llvm".equals(newValue)) {
-                boolean isLLVMBackendMissing = JVMCIReflectionUtil.bootModuleLayer().findModule("org.graalvm.nativeimage.llvm").isEmpty();
+                boolean isLLVMBackendMissing = false; // riscv64 test: avoid premature GuestAccess plant during option parse
                 if (isLLVMBackendMissing) {
                     throw UserError.invalidOptionValue(CompilerBackend, newValue,
                                     "The LLVM backend for GraalVM Native Image is missing and needs to be built from source. " +

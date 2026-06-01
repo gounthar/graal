@@ -1169,6 +1169,7 @@ suite = {
             # Export the package containing Word to all modules
             # co-developed in the same repository.
             """org.graalvm.word.impl to
+                   org.graalvm.nativeimage.llvm,
                    jdk.graal.compiler,
                    org.graalvm.truffle.runtime.svm,
                    org.graalvm.nativeimage.builder,

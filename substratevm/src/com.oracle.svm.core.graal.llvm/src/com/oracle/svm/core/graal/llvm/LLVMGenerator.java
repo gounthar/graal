@@ -1618,6 +1618,36 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
         }
 
         @Override
+        public Value emitMathMin(LIRKind cmpKind, Value a, Value b) {
+            LLVMValueRef aVal = getVal(a);
+            LLVMValueRef min = isIntegerType(LLVM.LLVMTypeOf(aVal))
+                            ? builder.buildSignedMin(aVal, getVal(b))
+                            : builder.buildMin(aVal, getVal(b));
+            return new LLVMVariable(min);
+        }
+
+        @Override
+        public Value emitMathMax(LIRKind cmpKind, Value a, Value b) {
+            LLVMValueRef aVal = getVal(a);
+            LLVMValueRef max = isIntegerType(LLVM.LLVMTypeOf(aVal))
+                            ? builder.buildSignedMax(aVal, getVal(b))
+                            : builder.buildMax(aVal, getVal(b));
+            return new LLVMVariable(max);
+        }
+
+        @Override
+        public Value emitMathUnsignedMin(LIRKind cmpKind, Value x, Value y) {
+            LLVMValueRef min = builder.buildUnsignedMin(getVal(x), getVal(y));
+            return new LLVMVariable(min);
+        }
+
+        @Override
+        public Value emitMathUnsignedMax(LIRKind cmpKind, Value x, Value y) {
+            LLVMValueRef max = builder.buildUnsignedMax(getVal(x), getVal(y));
+            return new LLVMVariable(max);
+        }
+
+        @Override
         public Value emitMathCopySign(Value a, Value b) {
             LLVMValueRef copySign = builder.buildCopysign(getVal(a), getVal(b));
             return new LLVMVariable(copySign);

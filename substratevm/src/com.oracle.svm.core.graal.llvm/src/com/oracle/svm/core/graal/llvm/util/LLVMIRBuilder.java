@@ -246,7 +246,7 @@ public class LLVMIRBuilder implements AutoCloseable {
     }
 
     public enum LLVMCallingConvention {
-        GraalCallingConvention(487);
+        GraalCallingConvention(107);
 
         private final int value;
 
@@ -1106,6 +1106,22 @@ public class LLVMIRBuilder implements AutoCloseable {
 
     public LLVMValueRef buildMax(LLVMValueRef a, LLVMValueRef b) {
         return buildIntrinsicOp("maximum", a, b);
+    }
+
+    public LLVMValueRef buildSignedMin(LLVMValueRef a, LLVMValueRef b) {
+        return buildIntrinsicOp("smin", a, b);
+    }
+
+    public LLVMValueRef buildSignedMax(LLVMValueRef a, LLVMValueRef b) {
+        return buildIntrinsicOp("smax", a, b);
+    }
+
+    public LLVMValueRef buildUnsignedMin(LLVMValueRef a, LLVMValueRef b) {
+        return buildIntrinsicOp("umin", a, b);
+    }
+
+    public LLVMValueRef buildUnsignedMax(LLVMValueRef a, LLVMValueRef b) {
+        return buildIntrinsicOp("umax", a, b);
     }
 
     public LLVMValueRef buildCopysign(LLVMValueRef a, LLVMValueRef b) {

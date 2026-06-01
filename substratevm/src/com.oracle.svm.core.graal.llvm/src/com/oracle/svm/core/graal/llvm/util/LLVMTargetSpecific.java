@@ -472,7 +472,7 @@ class LLVMRISCV64TargetSpecificFeature implements InternalFeature {
             public List<String> getLLCAdditionalOptions() {
                 List<String> list = new ArrayList<>();
                 list.add("--frame-pointer=all");
-                list.add("-mattr=+c,+d");
+                list.add("-mattr=+c,+d,+reserve-x23,+reserve-x27");
                 list.add("-target-abi=lp64d");
                 return list;
             }
