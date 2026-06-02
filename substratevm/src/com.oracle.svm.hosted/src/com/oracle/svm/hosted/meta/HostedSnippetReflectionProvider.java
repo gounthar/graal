@@ -31,6 +31,7 @@ import com.oracle.graal.pointsto.ObjectScanner.OtherReason;
 import com.oracle.graal.pointsto.heap.ImageHeapConstant;
 import com.oracle.graal.pointsto.heap.ImageHeapScanner;
 import com.oracle.svm.core.deopt.DeoptimizationSupport;
+import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.graal.nodes.TLABObjectHeaderConstant;
 import com.oracle.svm.core.heap.Heap;
 import com.oracle.svm.core.hub.DynamicHub;
@@ -75,6 +76,15 @@ public class HostedSnippetReflectionProvider implements SnippetReflectionProvide
         VMError.guarantee(hub instanceof DynamicHub, "must be a DynamicHub: %s", hub);
         int constantHeaderSize = Heap.getHeap().getObjectHeader().constantHeaderSize();
         if (constantHeaderSize < 0) {
+            return null;
+        }
+        if (SubstrateOptions.useLLVMBackend()) {
+            /*
+             * The LLVM backend cannot patch an inline object-header constant in the generated code:
+             * it would emit the unpatched TLABObjectHeaderConstant placeholder (0xdead...) as a
+             * literal. Fall back to the non-inline allocation path, which derives the header from
+             * the hub constant (emitted as a relocated object reference) at run time.
+             */
             return null;
         }
         if (DeoptimizationSupport.enabled() && SubstrateCompilationDirectives.isDeoptTarget(graph.method())) {
