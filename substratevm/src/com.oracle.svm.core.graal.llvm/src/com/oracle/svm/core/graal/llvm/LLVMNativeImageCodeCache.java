@@ -42,9 +42,11 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import com.oracle.svm.core.Isolates;
 import com.oracle.svm.core.graal.code.CGlobalDataDirectReference;
 import org.graalvm.collections.Pair;
 import org.graalvm.nativeimage.Platform;
@@ -282,6 +284,22 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
         return function + " (" + basePath.resolve(fileName) + ")";
     }
 
+    /*
+     * Heap boundary symbols are defined by the image builder itself. The LLVM backend must not
+     * also register them as external undefined references here, otherwise defining them later
+     * fails with an illegal symbol-table replacement.
+     */
+    private static final Set<String> IMAGE_DEFINED_SYMBOLS = Set.of(
+                    Isolates.IMAGE_HEAP_BEGIN_SYMBOL_NAME,
+                    Isolates.IMAGE_HEAP_END_SYMBOL_NAME,
+                    Isolates.IMAGE_HEAP_RELOCATABLE_BEGIN_SYMBOL_NAME,
+                    Isolates.IMAGE_HEAP_RELOCATABLE_END_SYMBOL_NAME,
+                    Isolates.IMAGE_HEAP_A_RELOCATABLE_POINTER_SYMBOL_NAME,
+                    Isolates.IMAGE_HEAP_WRITABLE_BEGIN_SYMBOL_NAME,
+                    Isolates.IMAGE_HEAP_WRITABLE_END_SYMBOL_NAME,
+                    Isolates.IMAGE_HEAP_WRITABLE_PATCHED_BEGIN_SYMBOL_NAME,
+                    Isolates.IMAGE_HEAP_WRITABLE_PATCHED_END_SYMBOL_NAME);
+
     @Override
     public void patchMethods(DebugContext debug, RelocatableBuffer relocs, ObjectFile objectFile) {
         Element rodataSection = objectFile.elementForName(SectionName.RODATA.getFormatDependentName(objectFile.getFormat()));
@@ -292,7 +310,8 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                 if (dataPatch.reference instanceof CGlobalDataDirectReference ref) {
                     CGlobalDataInfo info = ref.getDataInfo();
                     CGlobalDataImpl<?> data = info.getData();
-                    if (info.isSymbolReference() && objectFile.getOrCreateSymbolTable().getSymbol(data.symbolName) == null) {
+                    if (info.isSymbolReference() && !IMAGE_DEFINED_SYMBOLS.contains(data.symbolName) &&
+                                    objectFile.getOrCreateSymbolTable().getSymbol(data.symbolName) == null) {
                         objectFile.createUndefinedSymbol(data.symbolName, true);
                     }
 
