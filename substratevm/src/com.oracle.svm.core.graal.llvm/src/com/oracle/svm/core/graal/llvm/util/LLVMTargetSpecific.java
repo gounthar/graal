@@ -497,17 +497,30 @@ class LLVMRISCV64TargetSpecificFeature implements InternalFeature {
              */
             @Override
             public int getInstructionOffset(ByteBuffer buffer, int offset, LLVMSectionIteratorRef relocationsSectionIteratorRef, LLVMRelocationIteratorRef relocationIteratorRef) {
-                while (LLVM.LLVMIsRelocationIteratorAtEnd(relocationsSectionIteratorRef, relocationIteratorRef) == FALSE && offset != LLVM.LLVMGetRelocationOffset(relocationIteratorRef)) {
+                /*
+                 * A stack map record stores its instruction offset either as a literal value in
+                 * the section (e.g. the method-start record) or, when it is a label difference, as
+                 * a pair of R_RISCV_ADD32/R_RISCV_SUB32 relocations on the field. Relocations are
+                 * sorted by offset, so advance until the current relocation is at or past this
+                 * field. A relocation sitting exactly on the field means the value is the difference
+                 * of the two relocated symbols; otherwise the field holds a literal value and must
+                 * be read directly, like on architectures that do not relocate stack map offsets.
+                 */
+                while (LLVM.LLVMIsRelocationIteratorAtEnd(relocationsSectionIteratorRef, relocationIteratorRef) == FALSE &&
+                                LLVM.LLVMGetRelocationOffset(relocationIteratorRef) < offset) {
                     LLVM.LLVMMoveToNextRelocation(relocationIteratorRef);
                 }
-                if (offset == LLVM.LLVMGetRelocationOffset(relocationIteratorRef)) {
+                if (LLVM.LLVMIsRelocationIteratorAtEnd(relocationsSectionIteratorRef, relocationIteratorRef) == FALSE &&
+                                LLVM.LLVMGetRelocationOffset(relocationIteratorRef) == offset) {
                     LLVMSymbolIteratorRef firstSymbol = LLVM.LLVMGetRelocationSymbol(relocationIteratorRef);
                     LLVM.LLVMMoveToNextRelocation(relocationIteratorRef);
-                    assert offset == LLVM.LLVMGetRelocationOffset(relocationIteratorRef);
+                    assert LLVM.LLVMIsRelocationIteratorAtEnd(relocationsSectionIteratorRef, relocationIteratorRef) == FALSE &&
+                                    LLVM.LLVMGetRelocationOffset(relocationIteratorRef) == offset : "expected paired relocation at offset " + offset;
                     LLVMSymbolIteratorRef secondSymbol = LLVM.LLVMGetRelocationSymbol(relocationIteratorRef);
+                    LLVM.LLVMMoveToNextRelocation(relocationIteratorRef);
                     return (int) (LLVM.LLVMGetSymbolAddress(firstSymbol) - LLVM.LLVMGetSymbolAddress(secondSymbol));
                 } else {
-                    throw shouldNotReachHere("Stack map has no relocation for offset " + offset);
+                    return buffer.getInt(offset);
                 }
             }
 
