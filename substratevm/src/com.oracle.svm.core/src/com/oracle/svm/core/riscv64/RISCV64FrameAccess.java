@@ -24,10 +24,14 @@
  */
 package com.oracle.svm.core.riscv64;
 
+import static com.oracle.svm.shared.Uninterruptible.CALLED_FROM_UNINTERRUPTIBLE_CODE;
+
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platforms;
 
 import com.oracle.svm.core.FrameAccess;
+import com.oracle.svm.core.SubstrateTarget;
+import com.oracle.svm.shared.Uninterruptible;
 import com.oracle.svm.shared.singletons.AutomaticallyRegisteredImageSingleton;
 import com.oracle.svm.shared.singletons.traits.BuiltinTraits.AllAccess;
 import com.oracle.svm.shared.singletons.traits.BuiltinTraits.Disallowed;
@@ -39,4 +43,9 @@ import com.oracle.svm.shared.singletons.traits.SingletonTraits;
 @Platforms(Platform.RISCV64.class)
 @SingletonTraits(access = AllAccess.class, layeredCallbacks = NoLayeredCallbacks.class, layeredInstallationKind = Duplicable.class, other = Disallowed.class)
 public class RISCV64FrameAccess extends FrameAccess {
+    @Override
+    @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
+    protected int getReturnAddressSize() {
+        return SubstrateTarget.getWordSize();
+    }
 }
