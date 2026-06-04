@@ -148,6 +148,16 @@ public interface LLVMTargetSpecific {
     }
 
     /**
+     * Whether entry points must explicitly save and restore the reserved registers. Needed on
+     * targets where the reserved registers are reserved through the target features: LLVM then
+     * neither allocates nor saves them, so an inline-asm clobber has no effect and the native
+     * caller's values would be lost.
+     */
+    default boolean needsExplicitReservedRegisterSaveAtEntryPoints() {
+        return false;
+    }
+
+    /**
      * Extracts the instruction offset from the Stack Map section.
      */
     default int getInstructionOffset(ByteBuffer buffer, int offset, @SuppressWarnings("unused") LLVMSectionIteratorRef relocationsSectionIteratorRef,
@@ -489,6 +499,11 @@ class LLVMRISCV64TargetSpecificFeature implements InternalFeature {
             @Override
             public boolean isSymbolValid(String section) {
                 return !section.isEmpty() && !section.startsWith(".L") && !section.startsWith("$x") && !section.equals("$d");
+            }
+
+            @Override
+            public boolean needsExplicitReservedRegisterSaveAtEntryPoints() {
+                return true;
             }
 
             /*

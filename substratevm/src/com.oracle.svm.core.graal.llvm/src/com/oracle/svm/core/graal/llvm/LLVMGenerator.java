@@ -988,6 +988,9 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
 
     @Override
     public void emitReturn(JavaKind javaKind, Value input, AllocatableValue tailCallTarget, AllocatableValue[] additionalReturns) {
+        if (isEntryPoint) {
+            restoreReservedRegistersAtEntryPoint();
+        }
         if (javaKind == JavaKind.Void) {
             debugInfoPrinter.printRetVoid();
             builder.buildRetVoid();
@@ -1087,6 +1090,41 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
         LLVMValueRef add = builder.buildInlineAsm(inlineAsmType, asmSnippet, true, false);
         LLVMValueRef call = builder.buildCall(add);
         builder.setCallSiteAttribute(call, Attribute.GCLeafFunction);
+    }
+
+    private LLVMValueRef savedEntryThreadRegister;
+    private LLVMValueRef savedEntryHeapBaseRegister;
+
+    /**
+     * Preserves the reserved registers across an entry point so that a native caller gets its
+     * own values back on return. On most targets the heap base register is a normal
+     * callee-saved register, so an inline-asm clobber makes LLVM save and restore it. On RISC-V
+     * the reserved registers are reserved through the target features (the named-register
+     * intrinsics require it), so LLVM neither allocates nor saves them and the clobber is
+     * ignored; there we read the caller's values on entry and write them back before returns.
+     */
+    public void saveReservedRegistersAtEntryPoint() {
+        if (!LLVMTargetSpecific.get().needsExplicitReservedRegisterSaveAtEntryPoints()) {
+            clobberRegister(ReservedRegisters.singleton().getHeapBaseRegister().name);
+            return;
+        }
+        Register threadRegister = ReservedRegisters.singleton().getThreadRegister();
+        if (threadRegister != null) {
+            savedEntryThreadRegister = builder.buildReadRegister(builder.register(LLVMTargetSpecific.get().getLLVMRegisterName(threadRegister.name)));
+        }
+        Register heapBaseRegister = ReservedRegisters.singleton().getHeapBaseRegister();
+        if (heapBaseRegister != null) {
+            savedEntryHeapBaseRegister = builder.buildReadRegister(builder.register(LLVMTargetSpecific.get().getLLVMRegisterName(heapBaseRegister.name)));
+        }
+    }
+
+    private void restoreReservedRegistersAtEntryPoint() {
+        if (savedEntryThreadRegister != null) {
+            builder.buildWriteRegister(builder.register(LLVMTargetSpecific.get().getLLVMRegisterName(ReservedRegisters.singleton().getThreadRegister().name)), savedEntryThreadRegister);
+        }
+        if (savedEntryHeapBaseRegister != null) {
+            builder.buildWriteRegister(builder.register(LLVMTargetSpecific.get().getLLVMRegisterName(ReservedRegisters.singleton().getHeapBaseRegister().name)), savedEntryHeapBaseRegister);
+        }
     }
 
     public void clobberRegister(String register) {
