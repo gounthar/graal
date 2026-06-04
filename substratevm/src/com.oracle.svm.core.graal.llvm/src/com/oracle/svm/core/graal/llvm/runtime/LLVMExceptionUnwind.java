@@ -45,6 +45,9 @@ import com.oracle.graal.pointsto.infrastructure.UniverseMetaAccess;
 import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.shared.Uninterruptible;
 import com.oracle.svm.core.graal.llvm.util.LLVMDirectives;
+import com.oracle.svm.core.c.InitializeReservedRegistersPrologue;
+import com.oracle.svm.guest.staging.c.function.CEntryPointOptions;
+import com.oracle.svm.guest.staging.c.function.CEntryPointOptions.NoEpilogue;
 import com.oracle.svm.core.graal.stackvalue.UnsafeStackValue;
 import com.oracle.svm.core.snippets.ExceptionUnwind;
 import com.oracle.svm.core.stack.StackOverflowCheck;
@@ -83,6 +86,7 @@ public class LLVMExceptionUnwind {
      * NodeLLVMBuilder.emitReadExceptionObject).
      */
     @CEntryPoint(include = IncludeForLLVMOnly.class, publishAs = CEntryPoint.Publish.NotPublished)
+    @CEntryPointOptions(prologue = InitializeReservedRegistersPrologue.class, epilogue = NoEpilogue.class)
     @Uninterruptible(reason = "Must not execute a recurring callback before returning", calleeMustBe = false)
     @SuppressWarnings("unused")
     public static int personality(int version, int action, IsolateThread thread, _Unwind_Exception unwindException, _Unwind_Context context) {
