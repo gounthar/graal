@@ -488,7 +488,7 @@ class LLVMRISCV64TargetSpecificFeature implements InternalFeature {
              */
             @Override
             public boolean isSymbolValid(String section) {
-                return !section.isEmpty() && !section.startsWith(".LBB") && !section.startsWith(".Lpcrel_hi") && !section.startsWith("$x") && !section.equals("$d");
+                return !section.isEmpty() && !section.startsWith(".L") && !section.startsWith("$x") && !section.equals("$d");
             }
 
             /*
