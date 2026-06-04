@@ -275,6 +275,13 @@ public final class PosixPlatformThreads extends PlatformThreads {
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     public ThreadLocalKey createUnmanagedThreadLocal() {
         Pthread.pthread_key_tPointer key = StackValue.get(Pthread.pthread_key_tPointer.class);
+        /*
+         * The stack slot is size_t-wide, but pthread_key_t is narrower than size_t on some
+         * platforms (a 4-byte unsigned int on Linux). pthread_key_create then writes only the
+         * low bytes and leaves the high bytes uninitialized. Zero the slot first so the value
+         * read back (and later passed to pthread_setspecific) does not contain stack garbage.
+         */
+        ((WordPointer) key).write(Word.zero());
         PosixUtils.checkStatusIs0(Pthread.pthread_key_create(key, Word.nullPointer()), "pthread_key_create(key, keyDestructor): failed.");
         return (ThreadLocalKey) key.read();
     }
